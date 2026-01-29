@@ -65,7 +65,7 @@ function USPS(options) {
             _options.minDate = new Date(0);
         }
 
-        const xml = `<TrackFieldRequest USERID="${options.userId}"><Revision>1</Revision><ClientIp>${options.clientIp || '127.0.0.1'}</ClientIp><SourceId>${options.sourceId || '@mediocre/bloodhound (+https://github.com/mediocre/bloodhound)'}</SourceId><TrackID ID="${trackingNumber}"/></TrackFieldRequest>`;
+        const xml = `<TrackFieldRequest USERID="${options.userId}"><Revision>1</Revision><ClientIp>${options.clientIp || '127.0.0.1'}</ClientIp><SourceId>${options.sourceId || '@mediocre/bloodhound (+https://github.com/stores-com/bloodhound)'}</SourceId><TrackID ID="${trackingNumber}"/></TrackFieldRequest>`;
 
         const req = {
             baseUrl: options.baseUrl || 'https://production.shippingapis.com',

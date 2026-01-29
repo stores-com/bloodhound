@@ -20,7 +20,7 @@
         "mocha": "*",
         "nock": "*"
     },
-    "homepage": "https://github.com/mediocre/bloodhound",
+    "homepage": "https://github.com/stores-com/bloodhound",
     "keywords": [
         "amazon",
         "dhl",
@@ -37,7 +37,7 @@
     "license": "Apache-2.0",
     "main": "index.js",
     "name": "@mediocre/bloodhound",
-    "repository": "https://github.com/mediocre/bloodhound",
+    "repository": "https://github.com/stores-com/bloodhound",
     "scripts": {
         "coveralls": "nyc npm test && nyc report --reporter=text-lcov | coveralls",
         "test": "mocha --exit --reporter spec test/* --timeout 30000"
