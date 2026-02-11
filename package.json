@@ -1,6 +1,6 @@
 {
     "dependencies": {
-        "@mediocre/ups": "~0.1.2",
+        "@stores.com/ups": "~0.1.2",
         "async": "~3.2.0",
         "dhl-ecommerce-solutions": "~0.3.0",
         "http-errors": "~2.0.0",
@@ -17,7 +17,6 @@
     "devDependencies": {
         "@eslint/js": "*",
         "globals": "*",
-        "mocha": "*",
         "nock": "*"
     },
     "homepage": "https://github.com/stores-com/bloodhound",
@@ -34,13 +33,13 @@
         "ups",
         "usps"
     ],
-    "license": "Apache-2.0",
+    "license": "MIT",
     "main": "index.js",
-    "name": "@mediocre/bloodhound",
+    "name": "@stores.com/bloodhound",
     "repository": "https://github.com/stores-com/bloodhound",
     "scripts": {
         "coveralls": "nyc npm test && nyc report --reporter=text-lcov | coveralls",
-        "test": "mocha --exit --reporter spec test/* --timeout 30000"
+        "test": "node --test --test-concurrency=true --test-force-exit --test-reporter=spec --test-timeout=30000"
     },
-    "version": "2.4.1"
+    "version": "3.0.0"
 }
