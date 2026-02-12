@@ -1,7 +1,7 @@
 # Bloodhound
 
 [![Build Status](https://github.com/stores-com/bloodhound/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/stores-com/bloodhound/actions?query=workflow%3Abuild+branch%3Amain)
-[![Coverage Status](https://coveralls.io/repos/github/mediocre/bloodhound/badge.svg)](https://coveralls.io/github/mediocre/bloodhound)
+[![Coverage Status](https://coveralls.io/repos/github/stores-com/bloodhound/badge.svg)](https://coveralls.io/github/stores-com/bloodhound)
 
 ![Elvis Presley & Bloodhound - Photo - 1964](https://res.cloudinary.com/mediocre/image/upload/v1562632498/rpkudq0xpyysdty9nkzk.jpg)
 
@@ -51,7 +51,7 @@ Note that estimated delivery dates are dynamic and may change as packages move t
 ## Getting Started
 
 ```javascript
-const Bloodhound = require('@mediocre/bloodhound');
+const Bloodhound = require('@stores.com/bloodhound');
 
 const bloodhound = new Bloodhound({
     usps: {
@@ -73,7 +73,7 @@ Creates a new Bloodhound client. Each carrier requires a different combination o
 By default, when Bloodhound encounters a timestamp without a UTC offset it will geocode using OpenStreetMap (which does not require an API key). You can optionally use a different geocoder. You can also optionally cache geocode results in Redis.
 
 ```javascript
-const Bloodhound = require('@mediocre/bloodhound');
+const Bloodhound = require('@stores.com/bloodhound');
 
 const bloodhound = new Bloodhound({
     dhl: {

@@ -18,7 +18,7 @@ const SHIPPED_TRACKING_STATUS_CODES = ['02', '03', '07', '10', '14', '30', '81',
 const TRACKING_STATUS_CODES_BLACKLIST = ['NT'];
 
 function USPS(options) {
-    this.isTrackingNumberValid = function(trackingNumber) {
+    this.isTrackingNumberValid = (trackingNumber) => {
         // remove whitespace
         trackingNumber = trackingNumber.replace(/\s/g, '');
         trackingNumber = trackingNumber.toUpperCase();
@@ -54,7 +54,7 @@ function USPS(options) {
         return false;
     };
 
-    this.track = function(trackingNumber, _options, callback) {
+    this.track = (trackingNumber, _options, callback) => {
         // Options are optional
         if (typeof _options === 'function') {
             callback = _options;
@@ -65,7 +65,7 @@ function USPS(options) {
             _options.minDate = new Date(0);
         }
 
-        const xml = `<TrackFieldRequest USERID="${options.userId}"><Revision>1</Revision><ClientIp>${options.clientIp || '127.0.0.1'}</ClientIp><SourceId>${options.sourceId || '@mediocre/bloodhound (+https://github.com/stores-com/bloodhound)'}</SourceId><TrackID ID="${trackingNumber}"/></TrackFieldRequest>`;
+        const xml = `<TrackFieldRequest USERID="${options.userId}"><Revision>1</Revision><ClientIp>${options.clientIp || '127.0.0.1'}</ClientIp><SourceId>${options.sourceId || '@stores.com/bloodhound (+https://github.com/stores-com/bloodhound)'}</SourceId><TrackID ID="${trackingNumber}"/></TrackFieldRequest>`;
 
         const req = {
             baseUrl: options.baseUrl || 'https://production.shippingapis.com',
@@ -74,14 +74,14 @@ function USPS(options) {
             url: `/ShippingAPI.dll?API=TrackV2&XML=${encodeURIComponent(xml)}`
         };
 
-        async.retry(function(callback) {
+        async.retry((callback) => {
             request(req, callback);
-        }, function(err, res) {
+        }, (err, res) => {
             if (err) {
                 return callback(err);
             }
 
-            parser.parseString(res.body, function(err, data) {
+            parser.parseString(res.body, (err, data) => {
                 const results = {
                     carrier: 'USPS',
                     events: [],
@@ -123,7 +123,7 @@ function USPS(options) {
                 const trackInfo = data.TrackResponse.TrackInfo[0];
 
                 if (trackInfo?.ExpectedDeliveryDate) {
-                    const parsedDate = moment(trackInfo.ExpectedDeliveryDate[0], 'MMMM D, YYYY').toDate();
+                    const parsedDate = moment.utc(trackInfo.ExpectedDeliveryDate[0], 'MMMM D, YYYY').toDate();
 
                     results.estimatedDeliveryDate = {
                         earliest: parsedDate,
@@ -147,8 +147,8 @@ function USPS(options) {
                 const locations = Array.from(new Set(scanDetailsList.map(scanDetail => scanDetail.location)));
 
                 // Lookup each location
-                async.mapLimit(locations, 10, function(location, callback) {
-                    geography.parseLocation(location, options, function(err, address) {
+                async.mapLimit(locations, 10, (location, callback) => {
+                    geography.parseLocation(location, options, (err, address) => {
                         if (err || !address) {
                             return callback(err, address);
                         }
@@ -157,7 +157,7 @@ function USPS(options) {
 
                         callback(null, address);
                     });
-                }, function(err, addresses) {
+                }, (err, addresses) => {
                     if (err) {
                         return callback(err);
                     }

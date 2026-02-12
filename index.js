@@ -71,7 +71,7 @@ function Bloodhound(options) {
     const ups = new UPS(options && options.ups);
     const usps = new USPS(options && options.usps);
 
-    this.guessCarrier = function(trackingNumber) {
+    this.guessCarrier = (trackingNumber) => {
         if (amazon.isTrackingNumberValid(trackingNumber)) {
             return 'Amazon';
         } else if (dhl.isTrackingNumberValid(trackingNumber)) {
@@ -89,11 +89,7 @@ function Bloodhound(options) {
         }
     };
 
-    this.track = function(trackingNumber, options, callback) {
-        if (!trackingNumber) {
-            return callback(new Error('Tracking number is not specified.'));
-        }
-
+    this.track = (trackingNumber, options, callback) => {
         // Options are optional
         if (typeof options === 'function') {
             callback = options;
@@ -107,38 +103,58 @@ function Bloodhound(options) {
             };
         }
 
-        // Try to guess the carrier
-        if (!options.carrier) {
-            options.carrier = this.guessCarrier(trackingNumber);
-
-            // If we still don't know the carrier return an error
-            if (!options.carrier) {
-                return callback(new Error('Unknown carrier.'));
-            }
+        if (!options) {
+            options = {};
         }
 
-        options.carrier = options.carrier.toLowerCase();
-        trackingNumber = trackingNumber.replace(/\s/g, '');
-        trackingNumber = trackingNumber.toUpperCase();
+        const executor = () => {
+            return new Promise((resolve, reject) => {
+                if (!trackingNumber) {
+                    return reject(new Error('Tracking number is not specified.'));
+                }
 
-        if (['amazon', 'amazon shipping'].includes(options.carrier )) {
-            amazon.track(trackingNumber, options, callback);
-        } else if (options.carrier === 'dhl') {
-            dhl.track(trackingNumber, options, callback);
-        } else if (options.carrier === 'fedex') {
-            fedEx.track(trackingNumber, options, callback);
-        } else if (options.carrier === 'gofo') {
-            gofo.track(trackingNumber, options, callback);
-        } else if (options.carrier === 'newgistics') {
-            pitneyBowes.track(trackingNumber, options, callback);
-        } else if (options.carrier === 'pitney bowes') {
-            pitneyBowes.track(trackingNumber, options, callback);
-        } else if (options.carrier === 'ups'){
-            ups.track(trackingNumber, options, callback);
-        } else if (options.carrier === 'usps') {
-            usps.track(trackingNumber, options, callback);
+                // Try to guess the carrier
+                if (!options.carrier) {
+                    options.carrier = this.guessCarrier(trackingNumber);
+
+                    // If we still don't know the carrier return an error
+                    if (!options.carrier) {
+                        return reject(new Error('Unknown carrier.'));
+                    }
+                }
+
+                options.carrier = options.carrier.toLowerCase();
+                trackingNumber = trackingNumber.replace(/\s/g, '');
+                trackingNumber = trackingNumber.toUpperCase();
+
+                let carrier;
+
+                if (['amazon', 'amazon shipping'].includes(options.carrier)) {
+                    carrier = amazon;
+                } else if (options.carrier === 'dhl') {
+                    carrier = dhl;
+                } else if (options.carrier === 'fedex') {
+                    carrier = fedEx;
+                } else if (options.carrier === 'gofo') {
+                    carrier = gofo;
+                } else if (['newgistics', 'pitney bowes'].includes(options.carrier)) {
+                    carrier = pitneyBowes;
+                } else if (options.carrier === 'ups') {
+                    carrier = ups;
+                } else if (options.carrier === 'usps') {
+                    carrier = usps;
+                } else {
+                    return reject(new Error(`Carrier ${options.carrier} is not supported.`));
+                }
+
+                carrier.track(trackingNumber, options, (err, data) => err ? reject(err) : resolve(data));
+            });
+        };
+
+        if (callback) {
+            executor().then((result) => callback(null, result)).catch(callback);
         } else {
-            return callback(new Error(`Carrier ${options.carrier} is not supported.`));
+            return executor();
         }
     };
 }

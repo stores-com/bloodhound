@@ -1,8 +1,9 @@
 {
     "dependencies": {
-        "@mediocre/ups": "~0.1.2",
+        "@stores.com/http-error": "~1.0.0",
+        "@stores.com/ups": "~1.1.0",
         "async": "~3.2.0",
-        "dhl-ecommerce-solutions": "~0.3.0",
+        "dhl-ecommerce-solutions": "~0.4.0",
         "http-errors": "~2.0.0",
         "memory-cache": "~0.2.0",
         "moment-timezone": "~0.5.28",
@@ -17,7 +18,6 @@
     "devDependencies": {
         "@eslint/js": "*",
         "globals": "*",
-        "mocha": "*",
         "nock": "*"
     },
     "homepage": "https://github.com/stores-com/bloodhound",
@@ -34,13 +34,19 @@
         "ups",
         "usps"
     ],
-    "license": "Apache-2.0",
+    "license": "MIT",
     "main": "index.js",
-    "name": "@mediocre/bloodhound",
-    "repository": "https://github.com/stores-com/bloodhound",
-    "scripts": {
-        "coveralls": "nyc npm test && nyc report --reporter=text-lcov | coveralls",
-        "test": "mocha --exit --reporter spec test/* --timeout 30000"
+    "name": "@stores.com/bloodhound",
+    "publishConfig": {
+        "access": "public"
     },
-    "version": "2.4.1"
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/stores-com/bloodhound.git"
+    },
+    "scripts": {
+        "coveralls": "node --test --test-concurrency=true --test-force-exit --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info --test-timeout=30000 && coveralls < lcov.info",
+        "test": "node --test --test-concurrency=true --test-force-exit --test-reporter=spec --test-timeout=30000"
+    },
+    "version": "2.5.0"
 }

@@ -6,13 +6,13 @@ const tzlookup = require('tz-lookup');
 
 let pettyCache;
 
-function geocode(location, callback) {
+const geocode = (location, callback) => {
     async.auto({
-        geocode: function(callback) {
+        geocode: (callback) => {
             // Geocode the location
-            async.retry(function(callback) {
+            async.retry((callback) => {
                 exports.geocoder.geocode(location, callback);
-            }, function(err, results) {
+            }, (err, results) => {
                 if (err) {
                     return callback(err);
                 }
@@ -21,7 +21,7 @@ function geocode(location, callback) {
                     return callback();
                 }
 
-                var firstResult = results[0];
+                const firstResult = results[0];
 
                 // Handle Google results
                 if (!firstResult.state && firstResult.administrativeLevels && firstResult.administrativeLevels.level1short) {
@@ -34,14 +34,14 @@ function geocode(location, callback) {
                 }
 
                 // Reverse geocode to ensure we get a city, state, and zip
-                async.retry(function(callback) {
+                async.retry((callback) => {
                     exports.geocoder.reverse({ lat: firstResult.latitude, lon: firstResult.longitude }, callback);
-                }, function(err, results) {
+                }, (err, results) => {
                     if (err) {
                         return callback(err);
                     }
 
-                    var firstResult = results[0];
+                    const firstResult = results[0];
 
                     // Handle Google results
                     if (!firstResult.state && firstResult.administrativeLevels && firstResult.administrativeLevels.level1short) {
@@ -52,7 +52,7 @@ function geocode(location, callback) {
                 });
             });
         }
-    }, function(err, results) {
+    }, (err, results) => {
         if (err) {
             return callback(err);
         }
@@ -67,9 +67,9 @@ function geocode(location, callback) {
             timezone: tzlookup(results.geocode.latitude, results.geocode.longitude)
         });
     });
-}
+};
 
-exports.addressToString = function(address) {
+exports.addressToString = (address) => {
     let value = '';
 
     if (address.city) {
@@ -99,7 +99,7 @@ exports.addressToString = function(address) {
     return value.trim();
 };
 
-exports.parseLocation = async.memoize(function(location, options, callback) {
+exports.parseLocation = async.memoize((location, options, callback) => {
     // Options are optional
     if (typeof options === 'function') {
         callback = options;
@@ -117,7 +117,7 @@ exports.parseLocation = async.memoize(function(location, options, callback) {
         }
 
         // Cache between 11-12 months
-        return pettyCache.fetch(`bloodhound.geocode:${location}`, function(callback) {
+        return pettyCache.fetch(`bloodhound.geocode:${location}`, (callback) => {
             geocode(location, callback);
         }, { ttl: { min: 28512000000, max: 31104000000 } }, callback);
     }

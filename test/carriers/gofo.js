@@ -1,15 +1,13 @@
-const assert = require('assert');
+const assert = require('node:assert');
+const test = require('node:test');
 
 const Bloodhound = require('../../index');
 const GOFO = require('../../carriers/gofo');
 
-describe('GOFO', function() {
-    this.retries(3);
-    this.timeout(30000);
-
+test('GOFO', { timeout: 30000 }, async (t) => {
     const bloodhound = new Bloodhound();
 
-    describe('gofo.isTrackingNumberValid', function() {
+    t.test('gofo.isTrackingNumberValid', { concurrency: true }, async (t) => {
         const gofo = new GOFO();
 
         const validTrackingNumbers = [
@@ -39,7 +37,7 @@ describe('GOFO', function() {
             '449044304137821'
         ];
 
-        it('should detect valid GOFO tracking numbers', function() {
+        t.test('should detect valid GOFO tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!gofo.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should be recognized as a valid GOFO tracking number`);
@@ -47,7 +45,7 @@ describe('GOFO', function() {
             });
         });
 
-        it('should not detect invalid GOFO tracking numbers', function() {
+        t.test('should not detect invalid GOFO tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (gofo.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid GOFO tracking number`);
@@ -56,143 +54,128 @@ describe('GOFO', function() {
         });
     });
 
-    describe('gofo.track', function() {
-        it('should return tracking information for a valid tracking number', function(done) {
-            bloodhound.track('CR000485623975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-
-                assert.strictEqual(actual.carrier, 'GOFO');
-                assert(actual.events.length > 0);
-                assert.strictEqual(typeof actual.url, 'string');
-                assert(actual.url.includes('CR000485623975'));
-
-                done();
+    t.test('gofo.track', { concurrency: true }, async (t) => {
+        t.test('should return tracking information for a valid tracking number', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR000485623975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
             });
+
+            assert.strictEqual(actual.carrier, 'GOFO');
+            assert(actual.events.length > 0);
+            assert.strictEqual(typeof actual.url, 'string');
+            assert(actual.url.includes('CR000485623975'));
         });
 
-        it('should return empty events for invalid tracking number', function(done) {
-            bloodhound.track('CR000000000000', 'gofo', function(err, actual) {
-                assert.ifError(err);
-                assert.strictEqual(actual.carrier, 'GOFO');
-                assert.strictEqual(actual.events.length, 0);
-                done();
+        t.test('should return empty events for invalid tracking number', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR000000000000', 'gofo', (err, data) => err ? reject(err) : resolve(data));
             });
+
+            assert.strictEqual(actual.carrier, 'GOFO');
+            assert.strictEqual(actual.events.length, 0);
         });
 
-        it('should handle tracking numbers with spaces', function(done) {
-            bloodhound.track('CR 0004 8562 3975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-                assert.strictEqual(actual.carrier, 'GOFO');
-                assert(actual.events.length > 0);
-                done();
+        t.test('should handle tracking numbers with spaces', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR 0004 8562 3975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
             });
+
+            assert.strictEqual(actual.carrier, 'GOFO');
+            assert(actual.events.length > 0);
         });
 
-        it('should handle lowercase tracking numbers', function(done) {
-            bloodhound.track('cr000485623975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-                assert.strictEqual(actual.carrier, 'GOFO');
-                assert(actual.events.length > 0);
-                done();
+        t.test('should handle lowercase tracking numbers', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('cr000485623975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
             });
+
+            assert.strictEqual(actual.carrier, 'GOFO');
+            assert(actual.events.length > 0);
         });
 
-        it('should include location information when available', function(done) {
-            bloodhound.track('CR000485623975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-
-                // Look for events with location data
-                const eventsWithLocation = actual.events.filter(event =>
-                    event.address.city || event.address.state
-                );
-
-                if (eventsWithLocation.length > 0) {
-                    eventsWithLocation.forEach(event => {
-                        if (event.address.city) {
-                            assert(typeof event.address.city === 'string');
-                            assert(event.address.city.length > 0);
-                        }
-                        if (event.address.state) {
-                            assert(typeof event.address.state === 'string');
-                            assert(event.address.state.length > 0);
-                        }
-                    });
-                }
-
-                done();
+        t.test('should include location information when available', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR000485623975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
             });
-        });
 
-        it('should return raw data in results', function(done) {
-            bloodhound.track('CR000485623975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-                assert(Object.hasOwn(actual, 'raw'));
+            const eventsWithLocation = actual.events.filter(event =>
+                event.address.city || event.address.state
+            );
 
-                if (actual.raw) {
-                    assert(typeof actual.raw === 'object');
-                    assert(Object.hasOwn(actual.raw, 'success'));
-                    assert(Object.hasOwn(actual.raw, 'data'));
-                }
-
-                done();
-            });
-        });
-
-        it('should sort events chronologically', function(done) {
-            bloodhound.track('CR000485623975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-
-                if (actual.events.length > 1) {
-                    for (let i = 1; i < actual.events.length; i++) {
-                        const prevDate = new Date(actual.events[i - 1].date);
-                        const currDate = new Date(actual.events[i].date);
-                        assert(prevDate <= currDate, 'Events should be sorted chronologically (oldest first)');
+            if (eventsWithLocation.length > 0) {
+                eventsWithLocation.forEach(event => {
+                    if (event.address.city) {
+                        assert(typeof event.address.city === 'string');
+                        assert(event.address.city.length > 0);
                     }
-                }
-
-                done();
-            });
-        });
-
-        it('should set deliveredAt for delivered packages', function(done) {
-            bloodhound.track('CR000485623975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-
-                // This tracking number should be delivered based on our earlier inspection
-                if (actual.deliveredAt) {
-                    assert(actual.deliveredAt instanceof Date);
-                }
-
-                done();
-            });
-        });
-
-        it('should set shippedAt for packages in transit', function(done) {
-            bloodhound.track('CR000485623975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-
-                if (actual.shippedAt) {
-                    assert(actual.shippedAt instanceof Date);
-                }
-
-                done();
-            });
-        });
-
-        it('should verify event structure', function(done) {
-            bloodhound.track('CR000485623975', 'gofo', function(err, actual) {
-                assert.ifError(err);
-
-                actual.events.forEach(event => {
-                    assert(Object.hasOwn(event, 'address'));
-                    assert(Object.hasOwn(event, 'date'));
-                    assert(Object.hasOwn(event, 'description'));
-                    assert(event.date instanceof Date);
-                    assert(typeof event.description === 'string');
-                    assert(event.description.length > 0);
+                    if (event.address.state) {
+                        assert(typeof event.address.state === 'string');
+                        assert(event.address.state.length > 0);
+                    }
                 });
+            }
+        });
 
-                done();
+        t.test('should return raw data in results', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR000485623975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert(Object.hasOwn(actual, 'raw'));
+
+            if (actual.raw) {
+                assert(typeof actual.raw === 'object');
+                assert(Object.hasOwn(actual.raw, 'success'));
+                assert(Object.hasOwn(actual.raw, 'data'));
+            }
+        });
+
+        t.test('should sort events chronologically', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR000485623975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            if (actual.events.length > 1) {
+                for (let i = 1; i < actual.events.length; i++) {
+                    const prevDate = new Date(actual.events[i - 1].date);
+                    const currDate = new Date(actual.events[i].date);
+                    assert(prevDate <= currDate, 'Events should be sorted chronologically (oldest first)');
+                }
+            }
+        });
+
+        t.test('should set deliveredAt for delivered packages', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR000485623975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            if (actual.deliveredAt) {
+                assert(actual.deliveredAt instanceof Date);
+            }
+        });
+
+        t.test('should set shippedAt for packages in transit', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR000485623975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            if (actual.shippedAt) {
+                assert(actual.shippedAt instanceof Date);
+            }
+        });
+
+        t.test('should verify event structure', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('CR000485623975', 'gofo', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            actual.events.forEach(event => {
+                assert(Object.hasOwn(event, 'address'));
+                assert(Object.hasOwn(event, 'date'));
+                assert(Object.hasOwn(event, 'description'));
+                assert(event.date instanceof Date);
+                assert(typeof event.description === 'string');
+                assert(event.description.length > 0);
             });
         });
     });

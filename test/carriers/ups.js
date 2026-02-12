@@ -1,19 +1,13 @@
-const assert = require('assert');
+const assert = require('node:assert');
+const test = require('node:test');
+
+const nock = require('nock');
+
 const Bloodhound = require('../../index');
 const UPS = require('../../carriers/ups');
 
-describe('UPS', function() {
-    this.retries(5);
-    this.timeout(25000);
-
-    const bloodhound = new Bloodhound({
-        ups: {
-            client_id: process.env.UPS_CLIENT_ID,
-            client_secret: process.env.UPS_CLIENT_SECRET
-        }
-    });
-
-    describe('ups.isTrackingNumberValid', function() {
+test('UPS', async (t) => {
+    t.test('ups.isTrackingNumberValid', { concurrency: true }, async (t) => {
         const ups = new UPS();
 
         const validTrackingNumbers = [
@@ -41,7 +35,7 @@ describe('UPS', function() {
             '1Z12345E020527079'
         ];
 
-        it('should detect valid UPS tracking numbers', function() {
+        t.test('should detect valid UPS tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!ups.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} is not recognized as a valid UPS tracking number`);
@@ -49,7 +43,7 @@ describe('UPS', function() {
             });
         });
 
-        it('should not detect invalid UPS tracking numbers', function() {
+        t.test('should not detect invalid UPS tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (ups.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid UPS tracking number`);
@@ -58,19 +52,76 @@ describe('UPS', function() {
         });
     });
 
-    describe('ups.track', function() {
-        it('should return tracking data', function(done) {
-            bloodhound.track('1Z5338FF0107231059', 'ups', function(err, actual) {
-                assert.ifError(err);
+    t.test('ups.track', async (t) => {
+        t.test('should return tracking data', async () => {
+            nock('https://wwwcie.ups.com')
+                .post('/security/v1/oauth/token')
+                .reply(200, {
+                    access_token: 'mock-token',
+                    expires_in: 3600,
+                    token_type: 'Bearer'
+                });
 
-                assert.strictEqual(actual.carrier, 'UPS');
-                assert.strictEqual(actual.deliveredAt, undefined);
-                assert.strictEqual(actual.shippedAt.toISOString(), '2024-03-18T18:03:06.000Z');
-                assert.strictEqual(actual.url, 'https://www.ups.com/track?tracknum=1Z5338FF0107231059');
-                assert.strictEqual(actual.events.length, 17);
+            nock('https://wwwcie.ups.com')
+                .get('/api/track/v1/details/1Z5338FF0107231059')
+                .query(true)
+                .reply(200, {
+                    trackResponse: {
+                        shipment: [{
+                            inquiryNumber: '1Z5338FF0107231059',
+                            package: [{
+                                trackingNumber: '1Z5338FF0107231059',
+                                activity: [
+                                    {
+                                        gmtDate: '20251211',
+                                        gmtTime: '15:41:00',
+                                        gmtOffset: '+00:00',
+                                        location: { address: { city: 'Hodgkins', countryCode: 'US', state: 'IL' } },
+                                        status: { description: 'Arrived at Facility', type: 'I' }
+                                    },
+                                    {
+                                        gmtDate: '20251210',
+                                        gmtTime: '05:59:00',
+                                        gmtOffset: '+00:00',
+                                        location: { address: { city: 'Maumee', countryCode: 'US', state: 'OH' } },
+                                        status: { description: 'Departed from Facility', type: 'I' }
+                                    },
+                                    {
+                                        gmtDate: '20251210',
+                                        gmtTime: '02:08:47',
+                                        gmtOffset: '+00:00',
+                                        location: { address: { city: 'Maumee', countryCode: 'US', state: 'OH' } },
+                                        status: { description: 'Arrived at Facility', type: 'I' }
+                                    },
+                                    {
+                                        gmtDate: '20251208',
+                                        gmtTime: '21:40:24',
+                                        gmtOffset: '+00:00',
+                                        location: { address: { countryCode: 'US' } },
+                                        status: { description: 'Shipper created a label, UPS has not received the package yet.', type: 'M' }
+                                    }
+                                ]
+                            }]
+                        }]
+                    }
+                });
 
-                done();
+            const bloodhound = new Bloodhound({
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
             });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('1Z5338FF0107231059', 'ups', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert.strictEqual(actual.carrier, 'UPS');
+            assert.strictEqual(actual.deliveredAt, undefined);
+            assert.strictEqual(actual.shippedAt.toISOString(), '2025-12-10T02:08:47.000Z');
+            assert.strictEqual(actual.url, 'https://www.ups.com/track?tracknum=1Z5338FF0107231059');
+            assert.strictEqual(actual.events.length, 4);
         });
     });
 });

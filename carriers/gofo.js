@@ -7,7 +7,7 @@ const DELIVERED_PROCESS_CODES = ['205'];
 const SHIPPED_PROCESS_CODES = ['200', '201', '202', '203', '208', '412'];
 
 function GOFO() {
-    this.isTrackingNumberValid = function(trackingNumber) {
+    this.isTrackingNumberValid = (trackingNumber) => {
         // Remove whitespace
         trackingNumber = trackingNumber.replace(/\s/g, '');
         trackingNumber = trackingNumber.toUpperCase();
@@ -16,7 +16,7 @@ function GOFO() {
         return /^CR\d{12}$/.test(trackingNumber);
     };
 
-    this.track = async function(trackingNumber, _options, callback) {
+    this.track = async (trackingNumber, _options, callback) => {
         // Options are optional
         if (typeof _options === 'function') {
             callback = _options;
@@ -32,7 +32,7 @@ function GOFO() {
         };
 
         try {
-            const json = await async.retry(async function() {
+            const json = await async.retry(async () => {
                 const response = await fetch('https://www.gofoexpress.com/cnee-api/consignee/track/query', {
                     body: JSON.stringify({ numberList: [trackingNumber] }),
                     headers: {

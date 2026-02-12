@@ -1,4 +1,4 @@
-const UPS = require('@mediocre/ups');
+const UPS = require('@stores.com/ups');
 
 const USPS = require('./usps');
 
@@ -6,7 +6,7 @@ module.exports = function(options) {
     const ups = new UPS(options);
     const usps = new USPS(options?.usps);
 
-    this.isTrackingNumberValid = function(trackingNumber) {
+    this.isTrackingNumberValid = (trackingNumber) => {
         // Remove whitespace
         trackingNumber = trackingNumber.replace(/\s/g, '');
         trackingNumber = trackingNumber.toUpperCase();
@@ -23,7 +23,7 @@ module.exports = function(options) {
         return false;
     };
 
-    this.track = async function(trackingNumber, _options, callback) {
+    this.track = async (trackingNumber, _options, callback) => {
         // Options are optional
         if (typeof _options === 'function') {
             callback = _options;

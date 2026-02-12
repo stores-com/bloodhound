@@ -1,29 +1,26 @@
-const assert = require('assert');
+const assert = require('node:assert');
+const test = require('node:test');
 
 const Bloodhound = require('../../index.js');
 
-describe('Newgistics', function() {
-    this.retries(3);
-    this.timeout(30000);
-
-    it('should return an error for invalid base URL', function(done) {
+test('Newgistics', { timeout: 30000 }, async (t) => {
+    t.test('should return an error for invalid base URL', async () => {
         const bloodhound = new Bloodhound({
             pitneyBowes: {
                 baseUrl: 'https://httpbin.org/status/500#'
             }
         });
 
-        bloodhound.track('9400111899223837861141', 'newgistics', function(err) {
-            assert(err);
-            done();
+        const err = await new Promise((resolve) => {
+            bloodhound.track('9400111899223837861141', 'newgistics', (err) => resolve(err));
         });
+
+        assert(err);
     });
 });
 
-describe('Pitney Bowes', function() {
-    this.timeout(30000);
-
-    it.skip('should not return an error', function(done) {
+test('Pitney Bowes', { timeout: 30000 }, async (t) => {
+    t.test('should not return an error', { skip: true }, async () => {
         const bloodhound = new Bloodhound({
             pitneyBowes: {
                 api_key: process.env.PITNEY_BOWES_API_KEY,
@@ -31,9 +28,8 @@ describe('Pitney Bowes', function() {
             }
         });
 
-        bloodhound.track('4203300992612927005269000093974783', { carrier: 'Pitney Bowes', minDate: new Date('2020-08-06T14:10:56.000Z') }, function(err) {
-            assert.ifError(err);
-            done();
+        await new Promise((resolve, reject) => {
+            bloodhound.track('4203300992612927005269000093974783', { carrier: 'Pitney Bowes', minDate: new Date('2020-08-06T14:10:56.000Z') }, (err) => err ? reject(err) : resolve());
         });
     });
 });
