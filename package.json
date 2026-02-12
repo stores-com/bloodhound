@@ -45,8 +45,8 @@
         "url": "git+https://github.com/stores-com/bloodhound.git"
     },
     "scripts": {
-        "coveralls": "node --test --test-concurrency=true --test-force-exit --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info --test-timeout=30000 && coveralls < lcov.info",
-        "test": "node --test --test-concurrency=true --test-force-exit --test-reporter=spec --test-timeout=30000"
+        "coveralls": "node --test --test-concurrency=true --test-force-exit --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info && coveralls < lcov.info",
+        "test": "node --test --test-concurrency=true --test-force-exit --test-reporter=spec"
     },
     "version": "2.5.0"
 }
