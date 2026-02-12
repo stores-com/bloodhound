@@ -52,6 +52,9 @@ jobs:
         UPS_CLIENT_ID: ${{ secrets.UPS_CLIENT_ID }}
         UPS_CLIENT_SECRET: ${{ secrets.UPS_CLIENT_SECRET }}
         USPS_USERID: ${{ secrets.USPS_USERID }}
+        XPO_API_KEY: ${{ secrets.XPO_API_KEY }}
+        XPO_PASSWORD: ${{ secrets.XPO_PASSWORD }}
+        XPO_USERNAME: ${{ secrets.XPO_USERNAME }}
 
       run: |
         if [ "${{ matrix.node-version }}/${{ matrix.redis-version }}" == "${RUN_COVERAGE_FOR}" ]
