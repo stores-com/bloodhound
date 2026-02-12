@@ -17,7 +17,7 @@ function DHL(options) {
     const dhlEcommerceSolutions = new DhlEcommerceSolutions(options && options.dhlEcommerceSolutions);
     const usps = new USPS(options && options.usps);
 
-    this.isTrackingNumberValid = function(trackingNumber) {
+    this.isTrackingNumberValid = (trackingNumber) => {
         // Remove spaces and uppercase
         trackingNumber = trackingNumber.replace(/\s/g, '').toUpperCase();
 
@@ -34,7 +34,7 @@ function DHL(options) {
         return dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber);
     };
 
-    this.track = function(trackingNumber, _options, callback) {
+    this.track = (trackingNumber, _options, callback) => {
         // Options are optional
         if (typeof _options === 'function') {
             callback = _options;
@@ -45,22 +45,7 @@ function DHL(options) {
             _options.minDate = new Date(0);
         }
 
-        if (options.dhlEcommerceSolutions && dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber)) {
-            async.retry(function(callback) {
-                dhlEcommerceSolutions.track(trackingNumber, _options, callback);
-            }, function(err, results) {
-                // If DHL eCommerce Solutions fails, try UTAPI
-                if (err || !results.raw?.packages?.length) {
-                    return trackWithUTAPI(_options);
-                }
-
-                return callback(err, results);
-            });
-        } else {
-            return trackWithUTAPI(_options);
-        }
-
-        function trackWithUTAPI(_options) {
+        const trackWithUTAPI = (_options) => {
             // This is the API being used from: https://developer.dhl.com/api-reference/shipment-tracking
             const req = {
                 forever: true,
@@ -74,8 +59,8 @@ function DHL(options) {
                 url: `https://api-eu.dhl.com/track/shipments?trackingNumber=${trackingNumber}`
             };
 
-            async.retry(function(callback) {
-                request(req, function(err, res, body) {
+            async.retry((callback) => {
+                request(req, (err, res, body) => {
                     if (err) {
                         return callback(err);
                     }
@@ -86,7 +71,7 @@ function DHL(options) {
 
                     callback(null, body);
                 });
-            }, function(err, body) {
+            }, (err, body) => {
                 if (err) {
                     // If UTAPI fails, try USPS
                     if (options.usps && usps.isTrackingNumberValid(trackingNumber)) {
@@ -125,7 +110,7 @@ function DHL(options) {
                 const events = shipment.events.reverse();
 
                 // Used when there is no address data present
-                var previousAddress = shipment.origin?.address;
+                const previousAddress = shipment.origin?.address;
 
                 // Set address and locationString of each event
                 events.forEach(event => {
@@ -140,8 +125,8 @@ function DHL(options) {
                 const locations = Array.from(new Set(events.map(event => event.locationString))).filter(l => l);
 
                 // Lookup each location
-                async.mapLimit(locations, 10, function(location, callback) {
-                    geography.parseLocation(location, options, function(err, address) {
+                async.mapLimit(locations, 10, (location, callback) => {
+                    geography.parseLocation(location, options, (err, address) => {
                         if (err || !address) {
                             return callback(err, address);
                         }
@@ -150,7 +135,7 @@ function DHL(options) {
 
                         callback(null, address);
                     });
-                }, function(err, addresses) {
+                }, (err, addresses) => {
                     if (err) {
                         return callback(err);
                     }
@@ -209,6 +194,21 @@ function DHL(options) {
                     callback(null, results);
                 });
             });
+        };
+
+        if (options.dhlEcommerceSolutions && dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber)) {
+            async.retry((callback) => {
+                dhlEcommerceSolutions.track(trackingNumber, _options, callback);
+            }, (err, results) => {
+                // If DHL eCommerce Solutions fails, try UTAPI
+                if (err || !results.raw?.packages?.length) {
+                    return trackWithUTAPI(_options);
+                }
+
+                return callback(err, results);
+            });
+        } else {
+            return trackWithUTAPI(_options);
         }
     };
 }

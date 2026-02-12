@@ -6,14 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Bloodhound is a Node.js package that provides a unified interface for retrieving tracking data from multiple shipping carriers (Amazon, DHL, FedEx, UPS, USPS) in a common format. The package focuses on proper timestamp parsing with timezone handling and automatic carrier detection.
 
-**Note**: As of v2.3.0, the UPS integration uses the new OAuth 2.0 API via the @mediocre/ups package, requiring `client_id` and `client_secret` for configuration.
+**Note**: As of v2.3.0, the UPS integration uses the new OAuth 2.0 API via the @stores.com/ups package, requiring `client_id` and `client_secret` for configuration.
 
 ## Key Commands
 
 ### Testing
 - Run all tests: `npm test`
 - Run tests with coverage: `npm run coveralls`
-- Individual test files are in `test/carriers/` and can be run with: `mocha test/carriers/[carrier].js --timeout 30000`
+- Individual test files are in `test/carriers/` and can be run with: `node --test --test-timeout=30000 test/carriers/[carrier].js`
 
 ### Linting
 There is no explicit lint command, but the project uses ESLint with configuration in `eslint.config.js`. You can run:

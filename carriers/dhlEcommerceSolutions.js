@@ -14,7 +14,7 @@ const SHIPPED_TRACKING_DESCRIPTIONS = ['ARRIVAL AT POST OFFICE', 'ARRIVAL DESTIN
 // Further, the generic 'ET', 'CT', etc. are not listed at all. Instead, we are just going to maintain our own mapping.
 let timezoneList;
 
-function getTimezoneName(abbr) {
+const getTimezoneName = (abbr) => {
     // Attempt to look up a timezone with the same name as the abbreviation provided
     let timezoneByName = moment.tz.zone(abbr);
 
@@ -76,7 +76,7 @@ const DHL_IMPB_REGEX = new RegExp(/^(?:420(?:\d{9}|\d{5}))?(93\d{3}109124(?:\d{1
 function DhlEcommerceSolutions(options) {
     const dhlEcommerceClient = new DhlEcommerceClient(options);
 
-    this.isTrackingNumberValid = function(trackingNumber) {
+    this.isTrackingNumberValid = (trackingNumber) => {
         // Remove spaces and uppercase
         trackingNumber = trackingNumber.replace(/\s/g, '').toUpperCase();
 
@@ -90,7 +90,7 @@ function DhlEcommerceSolutions(options) {
         return false;
     };
 
-    this.track = function(trackingNumber, _options, callback) {
+    this.track = (trackingNumber, _options, callback) => {
         // Options are optional
         if (typeof _options === 'function') {
             callback = _options;
@@ -101,9 +101,9 @@ function DhlEcommerceSolutions(options) {
             _options.minDate = new Date(0);
         }
 
-        async.retry(function(callback) {
+        async.retry((callback) => {
             dhlEcommerceClient.getTrackingByTrackingId(trackingNumber, callback);
-        }, function(err, body) {
+        }, (err, body) => {
             const results = {
                 carrier: 'DHL',
                 events: [],
@@ -129,7 +129,7 @@ function DhlEcommerceSolutions(options) {
             const events = package.events.reverse();
 
             // Used when there is no address data present
-            var previousAddress = package.pickupDetail?.pickupAddress;
+            let previousAddress = package.pickupDetail?.pickupAddress;
 
             events.forEach(event => {
                 if (!event.location || !event.country || event.postalCode === '0') {

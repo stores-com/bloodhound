@@ -16,7 +16,7 @@ const geography = require('../util/geography');
 function PitneyBowes(options) {
     const pitneyBowesClient = new PitneyBowesClient(options);
 
-    this.track = function(trackingNumber, _options, callback) {
+    this.track = (trackingNumber, _options, callback) => {
         // Options are optional
         if (typeof _options === 'function') {
             callback = _options;
@@ -30,14 +30,14 @@ function PitneyBowes(options) {
         // Pitney Bowes Marketing Mail Flats (length 31): 0004290252994200071698133931119
         const isImb = trackingNumber.length === 31;
 
-        async.retry(function(callback) {
+        async.retry((callback) => {
             if (isImb) {
                 return pitneyBowesClient.tracking({ carrier: 'IMB', trackingNumber: trackingNumber.substring(0, 20) }, callback);
             }
 
             // Pitney Bowes Standard (length 34): 4201913892748927005269000023298282
             pitneyBowesClient.tracking({ carrier: 'FDR', trackingNumber }, callback);
-        }, function(err, data) {
+        }, (err, data) => {
             const results = {
                 carrier: 'Pitney Bowes',
                 events: [],
@@ -80,8 +80,8 @@ function PitneyBowes(options) {
             const locations = Array.from(new Set(data.scanDetailsList.map(scanDetail => scanDetail.location))).filter(l => l);
 
             // Lookup each location
-            async.mapLimit(locations, 10, function(location, callback) {
-                geography.parseLocation(location, options, function(err, address) {
+            async.mapLimit(locations, 10, (location, callback) => {
+                geography.parseLocation(location, options, (err, address) => {
                     if (err || !address) {
                         return callback(err, address);
                     }
@@ -90,7 +90,7 @@ function PitneyBowes(options) {
 
                     callback(null, address);
                 });
-            }, function(err, addresses) {
+            }, (err, addresses) => {
                 if (err) {
                     return callback(err);
                 }

@@ -1,7 +1,7 @@
-module.exports = function(trackingNumber, multipliers, mod) {
-    var midx = 0;
-    var sum = 0;
-    var checkDigit, i, index, ref;
+module.exports = (trackingNumber, multipliers, mod) => {
+    let midx = 0;
+    let sum = 0;
+    let checkDigit, i, index, ref;
 
     for (index = i = 0, ref = trackingNumber.length - 2; (0 <= ref ? i <= ref : i >= ref); index = 0 <= ref ? ++i : --i) {
         sum += parseInt(trackingNumber[index], 10) * multipliers[midx];

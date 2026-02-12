@@ -1,11 +1,10 @@
-const assert = require('assert');
+const assert = require('node:assert');
+const test = require('node:test');
+
 const Bloodhound = require('../../index');
 const UPS = require('../../carriers/ups');
 
-describe('UPS', function() {
-    this.retries(5);
-    this.timeout(25000);
-
+test('UPS', { timeout: 25000 }, async (t) => {
     const bloodhound = new Bloodhound({
         ups: {
             client_id: process.env.UPS_CLIENT_ID,
@@ -13,7 +12,7 @@ describe('UPS', function() {
         }
     });
 
-    describe('ups.isTrackingNumberValid', function() {
+    t.test('ups.isTrackingNumberValid', { concurrency: true }, async (t) => {
         const ups = new UPS();
 
         const validTrackingNumbers = [
@@ -41,7 +40,7 @@ describe('UPS', function() {
             '1Z12345E020527079'
         ];
 
-        it('should detect valid UPS tracking numbers', function() {
+        t.test('should detect valid UPS tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!ups.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} is not recognized as a valid UPS tracking number`);
@@ -49,7 +48,7 @@ describe('UPS', function() {
             });
         });
 
-        it('should not detect invalid UPS tracking numbers', function() {
+        t.test('should not detect invalid UPS tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (ups.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid UPS tracking number`);
@@ -58,19 +57,17 @@ describe('UPS', function() {
         });
     });
 
-    describe('ups.track', function() {
-        it('should return tracking data', function(done) {
-            bloodhound.track('1Z5338FF0107231059', 'ups', function(err, actual) {
-                assert.ifError(err);
-
-                assert.strictEqual(actual.carrier, 'UPS');
-                assert.strictEqual(actual.deliveredAt, undefined);
-                assert.strictEqual(actual.shippedAt.toISOString(), '2024-03-18T18:03:06.000Z');
-                assert.strictEqual(actual.url, 'https://www.ups.com/track?tracknum=1Z5338FF0107231059');
-                assert.strictEqual(actual.events.length, 17);
-
-                done();
+    t.test('ups.track', async (t) => {
+        t.test('should return tracking data', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('1Z5338FF0107231059', 'ups', (err, data) => err ? reject(err) : resolve(data));
             });
+
+            assert.strictEqual(actual.carrier, 'UPS');
+            assert.strictEqual(actual.deliveredAt, undefined);
+            assert.strictEqual(actual.shippedAt.toISOString(), '2024-03-18T18:03:06.000Z');
+            assert.strictEqual(actual.url, 'https://www.ups.com/track?tracknum=1Z5338FF0107231059');
+            assert.strictEqual(actual.events.length, 17);
         });
     });
 });

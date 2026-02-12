@@ -22,7 +22,7 @@ function FedEx(args) {
         url: 'https://apis.fedex.com'
     }, args);
 
-    this.getAccessToken = function(callback) {
+    this.getAccessToken = (callback) => {
         const key = args.api_key;
         const accessToken = cache.get(key);
 
@@ -40,7 +40,7 @@ function FedEx(args) {
             url: `${options.url}/oauth/token`
         };
 
-        request(req, function(err, response, body) {
+        request(req, (err, response, body) => {
             if (err) {
                 return callback(err);
             }
@@ -60,7 +60,7 @@ function FedEx(args) {
         });
     };
 
-    this.isTrackingNumberValid = function(trackingNumber) {
+    this.isTrackingNumberValid = (trackingNumber) => {
         // Remove whitespace
         trackingNumber = trackingNumber.replace(/\s/g, '');
 
@@ -111,7 +111,7 @@ function FedEx(args) {
         return false;
     };
 
-    this.track = function(trackingNumber, _options, callback) {
+    this.track = (trackingNumber, _options, callback) => {
         // Options are optional
         if (typeof _options === 'function') {
             callback = _options;
@@ -122,7 +122,7 @@ function FedEx(args) {
             _options.minDate = new Date(0);
         }
 
-        this.getAccessToken(function(err, accessToken) {
+        this.getAccessToken((err, accessToken) => {
             if (err) {
                 return callback(err);
             }
@@ -146,8 +146,8 @@ function FedEx(args) {
                 url: `${options.url}/track/v1/trackingnumbers`
             };
 
-            async.retry(function(callback) {
-                request(trackRequestOptions, function(err, response, trackResponse) {
+            async.retry((callback) => {
+                request(trackRequestOptions, (err, response, trackResponse) => {
                     if (err) {
                         return callback(err);
                     }
@@ -168,7 +168,7 @@ function FedEx(args) {
 
                     callback(null, trackResponse);
                 });
-            }, function(err, trackReply) {
+            }, (err, trackReply) => {
                 if (err) {
                     return callback(err);
                 }

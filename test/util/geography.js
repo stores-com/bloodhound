@@ -1,11 +1,12 @@
-const assert = require('assert');
+const assert = require('node:assert');
+const test = require('node:test');
 
 const NodeGeocoder = require('node-geocoder');
 
 const geography = require('../../util/geography');
 
-describe('geography.addressToString', function() {
-    it('New York', function() {
+test('geography.addressToString', { concurrency: true }, async (t) => {
+    t.test('New York', () => {
         const address = {
             city: 'New York'
         };
@@ -13,7 +14,7 @@ describe('geography.addressToString', function() {
         assert.strictEqual(geography.addressToString(address), 'New York');
     });
 
-    it('NY', function() {
+    t.test('NY', () => {
         const address = {
             state: 'NY'
         };
@@ -21,7 +22,7 @@ describe('geography.addressToString', function() {
         assert.strictEqual(geography.addressToString(address), 'NY');
     });
 
-    it('New York, NY', function() {
+    t.test('New York, NY', () => {
         const address = {
             city: 'New York',
             state: 'NY'
@@ -30,7 +31,7 @@ describe('geography.addressToString', function() {
         assert.strictEqual(geography.addressToString(address), 'New York, NY');
     });
 
-    it('New York, NY 10001', function() {
+    t.test('New York, NY 10001', () => {
         const address = {
             city: 'New York',
             state: 'NY',
@@ -40,7 +41,7 @@ describe('geography.addressToString', function() {
         assert.strictEqual(geography.addressToString(address), 'New York, NY 10001');
     });
 
-    it('New York, NY 10001, US', function() {
+    t.test('New York, NY 10001, US', () => {
         const address = {
             city: 'New York',
             country: 'US',
@@ -51,7 +52,7 @@ describe('geography.addressToString', function() {
         assert.strictEqual(geography.addressToString(address), 'New York, NY 10001, US');
     });
 
-    it('US', function() {
+    t.test('US', () => {
         const address = {
             country: 'US'
         };
@@ -60,100 +61,85 @@ describe('geography.addressToString', function() {
     });
 });
 
-describe('geography.parseLocation', function() {
-    this.timeout(15000);
-
-    it('should not error on empty strings', function(done) {
-        geography.parseLocation('', function(err, actual) {
-            assert.ifError(err);
-            assert.deepStrictEqual(actual, undefined);
-            done();
+test('geography.parseLocation', { timeout: 15000 }, async (t) => {
+    t.test('should not error on empty strings', async () => {
+        const actual = await new Promise((resolve, reject) => {
+            geography.parseLocation('', (err, actual) => err ? reject(err) : resolve(actual));
         });
+
+        assert.deepStrictEqual(actual, undefined);
     });
 
-    it('New York NY', function(done) {
-        geography.parseLocation('New York NY', function(err, actual) {
-            assert.ifError(err);
-
-            assert.strictEqual(actual.city, 'New York');
-            assert.strictEqual(actual.state, 'NY');
-            assert.strictEqual(actual.timezone, 'America/New_York');
-
-            done();
+    t.test('New York NY', async () => {
+        const actual = await new Promise((resolve, reject) => {
+            geography.parseLocation('New York NY', (err, actual) => err ? reject(err) : resolve(actual));
         });
+
+        assert.strictEqual(actual.city, 'New York');
+        assert.strictEqual(actual.state, 'NY');
+        assert.strictEqual(actual.timezone, 'America/New_York');
     });
 
-    it('O FALLON, MO', function(done) {
-        geography.parseLocation('O FALLON, MO', function(err, actual) {
-            assert.ifError(err);
-
-            assert.strictEqual(actual.city, 'O\'Fallon');
-            assert.strictEqual(actual.state, 'MO');
-            assert.strictEqual(actual.timezone, 'America/Chicago');
-
-            done();
+    t.test('O FALLON, MO', async () => {
+        const actual = await new Promise((resolve, reject) => {
+            geography.parseLocation('O FALLON, MO', (err, actual) => err ? reject(err) : resolve(actual));
         });
+
+        assert.strictEqual(actual.city, 'O\'Fallon');
+        assert.strictEqual(actual.state, 'MO');
+        assert.strictEqual(actual.timezone, 'America/Chicago');
     });
 });
 
-describe('petty-cache', function() {
-    this.timeout(15000);
-
-    it('should store results in Redis (via petty-cache)', function(done) {
-        geography.parseLocation('Carrollton, TX', { pettyCache: {} }, function(err, actual) {
-            assert.ifError(err);
-
-            const expected = {
-                city: 'Carrollton',
-                state: 'TX',
-                timezone: 'America/Chicago'
-            };
-
-            assert.deepStrictEqual(actual, expected);
-            done();
+test('petty-cache', { concurrency: true, timeout: 15000 }, async (t) => {
+    t.test('should store results in Redis (via petty-cache) - Carrollton, TX', async () => {
+        const actual = await new Promise((resolve, reject) => {
+            geography.parseLocation('Carrollton, TX', { pettyCache: {} }, (err, actual) => err ? reject(err) : resolve(actual));
         });
+
+        const expected = {
+            city: 'Carrollton',
+            state: 'TX',
+            timezone: 'America/Chicago'
+        };
+
+        assert.deepStrictEqual(actual, expected);
     });
 
-    it('should store results in Redis (via petty-cache)', function(done) {
-        geography.parseLocation('Lake Saint Louis, MO', { pettyCache: {} }, function(err, actual) {
-            assert.ifError(err);
-
-            const expected = {
-                city: 'Lake Saint Louis',
-                state: 'MO',
-                timezone: 'America/Chicago'
-            };
-
-            assert.deepStrictEqual(actual, expected);
-            done();
+    t.test('should store results in Redis (via petty-cache) - Lake Saint Louis, MO', async () => {
+        const actual = await new Promise((resolve, reject) => {
+            geography.parseLocation('Lake Saint Louis, MO', { pettyCache: {} }, (err, actual) => err ? reject(err) : resolve(actual));
         });
+
+        const expected = {
+            city: 'Lake Saint Louis',
+            state: 'MO',
+            timezone: 'America/Chicago'
+        };
+
+        assert.deepStrictEqual(actual, expected);
     });
 });
 
-describe('Google geocoder', function() {
-    var geocoder;
+test('Google geocoder', async (t) => {
+    const geocoder = geography.geocoder;
+    geography.geocoder = NodeGeocoder({ apiKey: process.env.GOOGLE_API_KEY, language: 'en', provider: 'google', region: '.us' });
 
-    after(function() {
+    t.after(() => {
         geography.geocoder = geocoder;
     });
 
-    before(function() {
-        geocoder = geography.geocoder;
-        geography.geocoder = NodeGeocoder({ apiKey: process.env.GOOGLE_API_KEY, language: 'en', provider: 'google', region: '.us' });
-    });
-
-    it('Los Angeles, CA', function(done) {
-        geography.parseLocation('Los Angeles, CA', function(err, actual) {
-            assert.ifError(err);
-
-            const expected = {
-                city: 'Los Angeles',
-                state: 'CA',
-                timezone: 'America/Los_Angeles'
-            };
-
-            assert.deepStrictEqual(actual, expected);
-            done();
+    t.test('Los Angeles, CA', async () => {
+        const actual = await new Promise((resolve, reject) => {
+            geography.parseLocation('Los Angeles, CA', (err, actual) => err ? reject(err) : resolve(actual));
         });
+
+        const expected = {
+            city: 'Los Angeles',
+            state: 'CA',
+            timezone: 'America/Los_Angeles'
+        };
+
+        assert.deepStrictEqual(actual, expected);
     });
 });

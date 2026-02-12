@@ -1,19 +1,20 @@
-const assert = require('assert');
+const assert = require('node:assert');
+const test = require('node:test');
+const util = require('node:util');
+
 const nock = require('nock');
-const util = require('util');
+
 const Bloodhound = require('../../index');
 const USPS = require('../../carriers/usps.js');
 
-describe('USPS', function() {
-    this.timeout(10000);
-
+test('USPS', { timeout: 10000 }, async (t) => {
     const bloodhound = new Bloodhound({
         usps: {
             userId: process.env.USPS_USERID
         }
     });
 
-    describe('usps.isTrackingNumberValid', function() {
+    t.test('usps.isTrackingNumberValid', { concurrency: true }, async (t) => {
         const usps = new USPS();
 
         const validTrackingNumbers = [
@@ -53,7 +54,7 @@ describe('USPS', function() {
             '4206810692612927005269000028978090'
         ];
 
-        it('should detect valid USPS tracking numbers', function() {
+        t.test('should detect valid USPS tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!usps.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} is not recognized as a valid USPS tracking number`);
@@ -61,7 +62,7 @@ describe('USPS', function() {
             });
         });
 
-        it('should not detect invalid USPS tracking numbers', function() {
+        t.test('should not detect invalid USPS tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (usps.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid USPS tracking number`);
@@ -70,10 +71,8 @@ describe('USPS', function() {
         });
     });
 
-    describe('Error Handling', function() {
-        this.timeout(60000);
-
-        it('should return an error for invalid base URL', function(done) {
+    t.test('Error Handling', { timeout: 60000 }, async (t) => {
+        t.test('should return an error for invalid base URL', async () => {
             const bloodhound = new Bloodhound({
                 usps: {
                     //baseUrl: 'https://httpbin.org/delay/10#',
@@ -82,14 +81,15 @@ describe('USPS', function() {
                 }
             });
 
-            bloodhound.track('9400111899223837861141', 'usps', function(err) {
-                assert(err);
-                done();
+            const err = await new Promise((resolve) => {
+                bloodhound.track('9400111899223837861141', 'usps', (err) => resolve(err));
             });
+
+            assert(err);
         });
     });
 
-    describe('Invalid USPS Access', function() {
+    t.test('Invalid USPS Access', async (t) => {
         const bloodhound = new Bloodhound({
             usps: {
                 baseUrl: 'https://google.com',
@@ -97,113 +97,112 @@ describe('USPS', function() {
             }
         });
 
-        it('should return an error for invalid URL', function(done) {
-            bloodhound.track('9400111899223837861141', 'usps', function(err) {
-                assert(err);
-                done();
+        t.test('should return an error for invalid URL', async () => {
+            const err = await new Promise((resolve) => {
+                bloodhound.track('9400111899223837861141', 'usps', (err) => resolve(err));
             });
+
+            assert(err);
         });
     });
 
-    describe('Invalid USPS Credentials', function() {
-        it('should return an error for invalid USERID', function(done) {
+    t.test('Invalid USPS Credentials', { concurrency: true }, async (t) => {
+        t.test('should return an error for invalid USERID', async () => {
             const bloodhound = new Bloodhound({
                 usps: {
                     userId: 'invalid'
                 }
             });
 
-            bloodhound.track('9400111899223837861141', 'usps', function(err) {
-                assert(err);
-                done();
+            const err = await new Promise((resolve) => {
+                bloodhound.track('9400111899223837861141', 'usps', (err) => resolve(err));
             });
+
+            assert(err);
         });
 
-        it('should return an error for a tracking number that contains invalid characters', function(done) {
-            bloodhound.track('12c &^trackf0', 'usps', function(err) {
-                assert(err);
-                done();
+        t.test('should return an error for a tracking number that contains invalid characters', async () => {
+            const err = await new Promise((resolve) => {
+                bloodhound.track('12c &^trackf0', 'usps', (err) => resolve(err));
             });
+
+            assert(err);
         });
     });
 
-    describe('USPS Tracking', function() {
-        it.skip('should return a shippedAt field when results have no shipping status', function(done) {
+    t.test('USPS Tracking', async (t) => {
+        t.test('should return a shippedAt field when results have no shipping status', { skip: true }, async () => {
             const bloodhound = new Bloodhound({
                 usps: {
                     userId: process.env.USPS_USERID
                 }
             });
 
-            bloodhound.track('4207866492612927005269000029964826', 'usps', function(err, actual) {
-                assert.ifError(err);
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('4207866492612927005269000029964826', 'usps', (err, data) => err ? reject(err) : resolve(data));
+            });
 
-                const expected = {
-                    carrier: 'USPS',
-                    events: [
-                        {
-                            address: {
-                                city: 'LA',
-                                country: '',
-                                state: 'CA',
-                                zip: '91423'
-                            },
-                            date: new Date('2019-07-19T20:57:00.000Z'),
-                            description: 'Delivered, Front Door/Porch',
-                            details: 'Your item was delivered at the front door or porch at 1:57 pm on July 19, 2019 in SHERMAN OAKS, CA 91423.'
+            const expected = {
+                carrier: 'USPS',
+                events: [
+                    {
+                        address: {
+                            city: 'LA',
+                            country: '',
+                            state: 'CA',
+                            zip: '91423'
                         },
-                        {
-                            address: {
-                                city: 'Carrollton',
-                                country: '',
-                                state: 'TX',
-                                zip: '75010'
-                            },
-                            date: new Date('2019-07-10T16:08:00.000Z'),
-                            description: 'Picked Up by Shipping Partner, USPS Awaiting Item'
-                        }
-                    ],
-                    deliveredAt: new Date('2019-07-19T20:57:00.000Z'),
-                    url: 'https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=4207866492612927005269000029964826',
-                    shippedAt: new Date('2019-07-19T20:57:00.000Z')
-                };
+                        date: new Date('2019-07-19T20:57:00.000Z'),
+                        description: 'Delivered, Front Door/Porch',
+                        details: 'Your item was delivered at the front door or porch at 1:57 pm on July 19, 2019 in SHERMAN OAKS, CA 91423.'
+                    },
+                    {
+                        address: {
+                            city: 'Carrollton',
+                            country: '',
+                            state: 'TX',
+                            zip: '75010'
+                        },
+                        date: new Date('2019-07-10T16:08:00.000Z'),
+                        description: 'Picked Up by Shipping Partner, USPS Awaiting Item'
+                    }
+                ],
+                deliveredAt: new Date('2019-07-19T20:57:00.000Z'),
+                url: 'https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=4207866492612927005269000029964826',
+                shippedAt: new Date('2019-07-19T20:57:00.000Z')
+            };
 
-                assert.deepStrictEqual(actual, expected);
-                done();
+            assert.deepStrictEqual(actual, expected);
+        });
+
+        t.test('should return an empty result if there is no tracking information available ', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('0987654321234567890', 'usps', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            const expected = {
+                carrier: 'USPS',
+                events: []
+            };
+
+            delete actual.raw;
+
+            assert.deepStrictEqual(actual, expected);
+        });
+
+        t.test('should return tracking information with no errors', async () => {
+            await new Promise((resolve, reject) => {
+                bloodhound.track('9400111899223835077162', 'usps', (err) => err ? reject(err) : resolve());
             });
         });
 
-        it('should return an empty result if there is no tracking information available ', function(done) {
-            bloodhound.track('0987654321234567890', 'usps', function(err, actual) {
-                assert.ifError(err);
-
-                const expected = {
-                    carrier: 'USPS',
-                    events: []
-                };
-
-                delete actual.raw;
-
-                assert.deepStrictEqual(actual, expected);
-                done();
+        t.test('should skip Track Details that do no have time stamps', async () => {
+            await new Promise((resolve, reject) => {
+                bloodhound.track('9400110200830244685403', 'usps', (err) => err ? reject(err) : resolve());
             });
         });
 
-        it('should return tracking information with no errors', function(done) {
-            bloodhound.track('9400111899223835077162', 'usps', function(err) {
-                assert.ifError(err);
-                done();
-            });
-        });
-
-        it('should skip Track Details that do no have time stamps', function(done) {
-            bloodhound.track('9400110200830244685403', 'usps', function(err) {
-                assert.ifError(err);
-                done();
-            });
-        });
-
-        it('should return estimatedDeliveryDate when available in USPS response', function(done) {
+        t.test('should return estimatedDeliveryDate when available in USPS response', async () => {
             const bloodhound = new Bloodhound({
                 usps: {
                     userId: process.env.USPS_USERID
@@ -231,15 +230,14 @@ describe('USPS', function() {
                 </TrackResponse>
               `);
 
-            bloodhound.track('9400150105798014348298', 'usps', function(err, actual) {
-                assert.ifError(err);
-                assert.strictEqual(actual.estimatedDeliveryDate.earliest.toISOString(), '2025-07-28T00:00:00.000Z');
-                assert.strictEqual(actual.estimatedDeliveryDate.latest.toISOString(), '2025-07-28T00:00:00.000Z');
-
-                assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.earliest), true, 'earliest is not a valid Date object');
-                assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.latest), true, 'latest is not a valid Date object');
-                done();
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('9400150105798014348298', 'usps', (err, data) => err ? reject(err) : resolve(data));
             });
+
+            assert.strictEqual(actual.estimatedDeliveryDate.earliest.toISOString(), '2025-07-28T00:00:00.000Z');
+            assert.strictEqual(actual.estimatedDeliveryDate.latest.toISOString(), '2025-07-28T00:00:00.000Z');
+            assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.earliest), true, 'earliest is not a valid Date object');
+            assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.latest), true, 'latest is not a valid Date object');
         });
     });
 });
