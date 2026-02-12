@@ -40,9 +40,32 @@ test('DHL', async (t) => {
 
     t.test('dhl.track', { timeout: 10000 }, async (t) => {
         t.test('should return a valid response with no errors', async () => {
+            nock('https://api-eu.dhl.com')
+                .get('/track/shipments')
+                .query({ trackingNumber: validTrackingNumbers[0] })
+                .reply(200, {
+                    shipments: [{
+                        id: '698E011D2920F49AA1243104',
+                        service: 'ecommerce',
+                        origin: {
+                            address: {
+                                addressLocality: 'CARROLLTON',
+                                countryCode: 'US',
+                                postalCode: '75010'
+                            }
+                        },
+                        status: {
+                            timestamp: '2026-02-12T10:34:42',
+                            statusCode: 'pre-transit',
+                            description: 'LABEL CREATED'
+                        },
+                        events: []
+                    }]
+                });
+
             const bloodhound = new Bloodhound({
                 dhl: {
-                    apiKey: process.env.DHL_API_KEY
+                    apiKey: 'fake-api-key'
                 }
             });
 
@@ -54,9 +77,32 @@ test('DHL', async (t) => {
         });
 
         t.test('should fall through to DHL UTAPI and return a response with no errors when DHL eCommerce Solutions fails', async () => {
+            nock('https://api-eu.dhl.com')
+                .get('/track/shipments')
+                .query({ trackingNumber: validTrackingNumbers[0] })
+                .reply(200, {
+                    shipments: [{
+                        id: '698E011D2920F49AA1243104',
+                        service: 'ecommerce',
+                        origin: {
+                            address: {
+                                addressLocality: 'CARROLLTON',
+                                countryCode: 'US',
+                                postalCode: '75010'
+                            }
+                        },
+                        status: {
+                            timestamp: '2026-02-12T10:34:42',
+                            statusCode: 'pre-transit',
+                            description: 'LABEL CREATED'
+                        },
+                        events: []
+                    }]
+                });
+
             const bloodhound = new Bloodhound({
                 dhl: {
-                    apiKey: process.env.DHL_API_KEY
+                    apiKey: 'fake-api-key'
                 },
                 dhlEcommerceSolutions: {
                     client_id: 'fail',
@@ -90,6 +136,12 @@ test('DHL', async (t) => {
         });
 
         t.test('should try DHL eCommerce solutions first', async () => {
+            nock('https://api-eu.dhl.com')
+                .get('/track/shipments')
+                .query({ trackingNumber: validTrackingNumbers[0] })
+                .times(5)
+                .reply(401, { status: 401, detail: 'Unauthorized' });
+
             const bloodhound = new Bloodhound({
                 dhlEcommerceSolutions: {
                     client_id: process.env.DHL_ECOMMERCE_SOLUTIONS_CLIENT_ID,
@@ -109,26 +161,26 @@ test('DHL', async (t) => {
 
         t.test('should return estimated delivery date for a real DHL tracking number', async () => {
             nock('https://api-eu.dhl.com')
-                .get('/track/shipments?trackingNumber=420944019261299999877816190127')
+                .get('/track/shipments')
+                .query({ trackingNumber: validTrackingNumbers[0] })
                 .reply(200, {
                     shipments: [{
-                        id: '420944019261299999877816190127',
+                        id: '698E011D2920F49AA1243104',
                         service: 'ecommerce',
-                        status: 'transit',
-                        estimatedTimeOfDelivery: '2025-07-29',
-                        events: [
-                            {
-                                timestamp: '2025-07-25T10:00:00',
-                                description: 'Shipment picked up',
-                                location: {
-                                    address: {
-                                        addressLocality: 'Frankfurt',
-                                        postalCode: '60547',
-                                        countryCode: 'DE'
-                                    }
-                                }
+                        origin: {
+                            address: {
+                                addressLocality: 'CARROLLTON',
+                                countryCode: 'US',
+                                postalCode: '75010'
                             }
-                        ]
+                        },
+                        status: {
+                            timestamp: '2026-02-12T10:34:42',
+                            statusCode: 'transit',
+                            description: 'IN TRANSIT'
+                        },
+                        estimatedTimeOfDelivery: '2026-02-18',
+                        events: []
                     }]
                 });
 
@@ -139,12 +191,12 @@ test('DHL', async (t) => {
             });
 
             const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('420944019261299999877816190127', 'dhl', (err, data) => err ? reject(err) : resolve(data));
+                bloodhound.track(validTrackingNumbers[0], 'dhl', (err, data) => err ? reject(err) : resolve(data));
             });
 
             assert(actual.estimatedDeliveryDate);
-            assert.strictEqual(actual.estimatedDeliveryDate.earliest.toISOString(), '2025-07-29T00:00:00.000Z');
-            assert.strictEqual(actual.estimatedDeliveryDate.latest.toISOString(), '2025-07-29T00:00:00.000Z');
+            assert.strictEqual(actual.estimatedDeliveryDate.earliest.toISOString(), '2026-02-18T00:00:00.000Z');
+            assert.strictEqual(actual.estimatedDeliveryDate.latest.toISOString(), '2026-02-18T00:00:00.000Z');
             assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.earliest), true);
             assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.latest), true);
         });

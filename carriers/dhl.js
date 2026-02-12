@@ -99,7 +99,7 @@ function DHL(options) {
                 // Add estimated delivery date to results if available
                 if (estimatedDeliveryDate) {
                     // DHL typically provides a single estimated delivery date, so we use it for both earliest and latest
-                    const deliveryDate = moment(estimatedDeliveryDate).toDate();
+                    const deliveryDate = moment.utc(estimatedDeliveryDate).toDate();
                     results.estimatedDeliveryDate = {
                         earliest: deliveryDate,
                         latest: deliveryDate

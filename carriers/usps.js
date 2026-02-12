@@ -123,7 +123,7 @@ function USPS(options) {
                 const trackInfo = data.TrackResponse.TrackInfo[0];
 
                 if (trackInfo?.ExpectedDeliveryDate) {
-                    const parsedDate = moment(trackInfo.ExpectedDeliveryDate[0], 'MMMM D, YYYY').toDate();
+                    const parsedDate = moment.utc(trackInfo.ExpectedDeliveryDate[0], 'MMMM D, YYYY').toDate();
 
                     results.estimatedDeliveryDate = {
                         earliest: parsedDate,

@@ -103,6 +103,10 @@ function Bloodhound(options) {
             };
         }
 
+        if (!options) {
+            options = {};
+        }
+
         const executor = () => {
             return new Promise((resolve, reject) => {
                 if (!trackingNumber) {

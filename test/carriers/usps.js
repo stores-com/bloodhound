@@ -220,10 +220,10 @@ test('USPS', { timeout: 10000 }, async (t) => {
                       <EventTime>12:00 pm</EventTime>
                       <EventDate>July 28, 2025</EventDate>
                       <Event>Delivered</Event>
-                      <EventCity>City</EventCity>
-                      <EventState>ST</EventState>
-                      <EventZIPCode>12345</EventZIPCode>
-                      <EventCountry>US</EventCountry>
+                      <EventCity></EventCity>
+                      <EventState></EventState>
+                      <EventZIPCode></EventZIPCode>
+                      <EventCountry></EventCountry>
                       <EventCode>01</EventCode>
                     </TrackSummary>
                   </TrackInfo>
