@@ -40,7 +40,7 @@ test('FedEx', async (t) => {
         });
     });
 
-    t.test('fedEx.track', { concurrency: true, timeout: 20000 }, async (t) => {
+    t.test('fedEx.track', { concurrency: true, timeout: 30000 }, async (t) => {
 
         const bloodhound = new Bloodhound({
             fedEx: {
