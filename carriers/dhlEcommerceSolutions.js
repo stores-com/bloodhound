@@ -67,7 +67,7 @@ const getTimezoneName = (abbr) => {
     }
 
     return timezone;
-}
+};
 
 // In an IMpb number, an initial '420' followed by ZIP or ZIP+4 is part of the barcode but is not supposed to be printed. If the tracking number comes from a barcode scanner, it will have that info.
 // 109124 is a Mailer ID provided by DHL. See https://postalpro.usps.com/shipping/impb/BarcodePackageIMSpec for full IMpb specs.

@@ -67,7 +67,7 @@ const geocode = (location, callback) => {
             timezone: tzlookup(results.geocode.latitude, results.geocode.longitude)
         });
     });
-}
+};
 
 exports.addressToString = (address) => {
     let value = '';

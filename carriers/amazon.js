@@ -1,4 +1,4 @@
-const createError = require('http-errors');
+const HttpError = require('@stores.com/http-error');
 
 // These event codes indicate the shipment was delivered
 const DELIVERED_EVENT_CODES = ['Delivered'];
@@ -92,7 +92,7 @@ function Amazon() {
             });
 
             if (!res.ok) {
-                throw createError(res.status);
+                throw await HttpError.from(res);
             }
 
             const json = await res.json();

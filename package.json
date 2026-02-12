@@ -1,6 +1,7 @@
 {
     "dependencies": {
-        "@stores.com/ups": "~0.1.2",
+        "@stores.com/http-error": "~1.0.0",
+        "@stores.com/ups": "~0.1.1",
         "async": "~3.2.0",
         "dhl-ecommerce-solutions": "~0.3.0",
         "http-errors": "~2.0.0",
@@ -36,9 +37,15 @@
     "license": "MIT",
     "main": "index.js",
     "name": "@stores.com/bloodhound",
-    "repository": "https://github.com/stores-com/bloodhound",
+    "publishConfig": {
+        "access": "public"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/stores-com/bloodhound.git"
+    },
     "scripts": {
-        "coveralls": "nyc npm test && nyc report --reporter=text-lcov | coveralls",
+        "coveralls": "node --test --test-concurrency=true --test-force-exit --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info --test-timeout=30000 && coveralls < lcov.info",
         "test": "node --test --test-concurrency=true --test-force-exit --test-reporter=spec --test-timeout=30000"
     },
     "version": "3.0.0"

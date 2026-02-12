@@ -1,7 +1,7 @@
 # Bloodhound
 
 [![Build Status](https://github.com/stores-com/bloodhound/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/stores-com/bloodhound/actions?query=workflow%3Abuild+branch%3Amain)
-[![Coverage Status](https://coveralls.io/repos/github/mediocre/bloodhound/badge.svg)](https://coveralls.io/github/mediocre/bloodhound)
+[![Coverage Status](https://coveralls.io/repos/github/stores-com/bloodhound/badge.svg)](https://coveralls.io/github/stores-com/bloodhound)
 
 ![Elvis Presley & Bloodhound - Photo - 1964](https://res.cloudinary.com/mediocre/image/upload/v1562632498/rpkudq0xpyysdty9nkzk.jpg)
 
