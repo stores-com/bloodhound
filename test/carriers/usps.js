@@ -101,6 +101,13 @@ test('USPS', { timeout: 10000 }, async (t) => {
     t.test('USPS Tracking', { concurrency: true }, async (t) => {
         t.test('should return an empty result if there is no tracking information available', async () => {
             nock('https://apis.usps.com')
+                .post('/oauth2/v3/token')
+                .reply(200, {
+                    access_token: 'test_token',
+                    expires_in: 3600
+                });
+
+            nock('https://apis.usps.com')
                 .post('/tracking/v3r2/tracking')
                 .reply(200, []);
 
@@ -127,6 +134,13 @@ test('USPS', { timeout: 10000 }, async (t) => {
         });
 
         t.test('should return estimatedDeliveryDate when available in USPS response', async () => {
+            nock('https://apis.usps.com')
+                .post('/oauth2/v3/token')
+                .reply(200, {
+                    access_token: 'test_token',
+                    expires_in: 3600
+                });
+
             nock('https://apis.usps.com')
                 .post('/tracking/v3r2/tracking')
                 .reply(200, [{
