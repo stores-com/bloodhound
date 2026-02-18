@@ -4,6 +4,7 @@ const Amazon = require('./carriers/amazon');
 const DHL = require('./carriers/dhl');
 const FedEx = require('./carriers/fedEx');
 const GOFO = require('./carriers/gofo');
+const OnTrac = require('./carriers/onTrac');
 const PitneyBowes = require('./carriers/pitneyBowes');
 const XPO = require('./carriers/xpo');
 const UPS = require('./carriers/ups');
@@ -68,6 +69,7 @@ function Bloodhound(options) {
     const dhl = new DHL(options && options.dhl);
     const fedEx = new FedEx(options && options.fedEx);
     const gofo = new GOFO(options && options.gofo);
+    const onTrac = new OnTrac(options && options.onTrac);
     const pitneyBowes = new PitneyBowes(options && options.pitneyBowes);
     const xpo = new XPO(options && options.xpo);
     const ups = new UPS(options && options.ups);
@@ -82,6 +84,8 @@ function Bloodhound(options) {
             return 'FedEx';
         } else if (gofo.isTrackingNumberValid(trackingNumber)) {
             return 'GOFO';
+        } else if (onTrac.isTrackingNumberValid(trackingNumber)) {
+            return 'OnTrac';
         } else if (xpo.isTrackingNumberValid(trackingNumber)) {
             return 'XPO';
         } else if (ups.isTrackingNumberValid(trackingNumber)) {
@@ -141,6 +145,8 @@ function Bloodhound(options) {
                     carrier = fedEx;
                 } else if (options.carrier === 'gofo') {
                     carrier = gofo;
+                } else if (['lasership', 'ontrac'].includes(options.carrier)) {
+                    carrier = onTrac;
                 } else if (['newgistics', 'pitney bowes'].includes(options.carrier)) {
                     carrier = pitneyBowes;
                 } else if (options.carrier === 'ups') {
