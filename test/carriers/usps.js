@@ -10,7 +10,8 @@ const USPS = require('../../carriers/usps.js');
 test('USPS', { timeout: 10000 }, async (t) => {
     const bloodhound = new Bloodhound({
         usps: {
-            userId: process.env.USPS_USERID
+            client_id: process.env.USPS_CLIENT_ID,
+            client_secret: process.env.USPS_CLIENT_SECRET
         }
     });
 
@@ -71,46 +72,13 @@ test('USPS', { timeout: 10000 }, async (t) => {
         });
     });
 
-    t.test('Error Handling', { timeout: 60000 }, async (t) => {
-        t.test('should return an error for invalid base URL', async () => {
+    t.test('Error Handling', { concurrency: true }, async (t) => {
+        t.test('should return an error for invalid credentials', async () => {
             const bloodhound = new Bloodhound({
                 usps: {
-                    //baseUrl: 'https://httpbin.org/delay/10#',
-                    baseUrl: 'https://localhost:99999',
-                    userId: process.env.USPS_USERID
-                }
-            });
-
-            const err = await new Promise((resolve) => {
-                bloodhound.track('9400111899223837861141', 'usps', (err) => resolve(err));
-            });
-
-            assert(err);
-        });
-    });
-
-    t.test('Invalid USPS Access', async (t) => {
-        const bloodhound = new Bloodhound({
-            usps: {
-                baseUrl: 'https://google.com',
-                userId: process.env.USPS_USERID
-            }
-        });
-
-        t.test('should return an error for invalid URL', async () => {
-            const err = await new Promise((resolve) => {
-                bloodhound.track('9400111899223837861141', 'usps', (err) => resolve(err));
-            });
-
-            assert(err);
-        });
-    });
-
-    t.test('Invalid USPS Credentials', { concurrency: true }, async (t) => {
-        t.test('should return an error for invalid USERID', async () => {
-            const bloodhound = new Bloodhound({
-                usps: {
-                    userId: 'invalid'
+                    client_id: 'invalid',
+                    client_secret: 'invalid',
+                    environment_url: 'https://apis.usps.com'
                 }
             });
 
@@ -130,52 +98,27 @@ test('USPS', { timeout: 10000 }, async (t) => {
         });
     });
 
-    t.test('USPS Tracking', async (t) => {
-        t.test('should return a shippedAt field when results have no shipping status', { skip: true }, async () => {
+    t.test('USPS Tracking', { concurrency: true }, async (t) => {
+        t.test('should return an empty result if there is no tracking information available', async () => {
+            nock('https://apis.usps.com')
+                .post('/oauth2/v3/token')
+                .reply(200, {
+                    access_token: 'test_token',
+                    expires_in: 3600
+                });
+
+            nock('https://apis.usps.com')
+                .post('/tracking/v3r2/tracking')
+                .reply(200, []);
+
             const bloodhound = new Bloodhound({
                 usps: {
-                    userId: process.env.USPS_USERID
+                    client_id: process.env.USPS_CLIENT_ID,
+                    client_secret: process.env.USPS_CLIENT_SECRET,
+                    environment_url: 'https://apis.usps.com'
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('4207866492612927005269000029964826', 'usps', (err, data) => err ? reject(err) : resolve(data));
-            });
-
-            const expected = {
-                carrier: 'USPS',
-                events: [
-                    {
-                        address: {
-                            city: 'LA',
-                            country: '',
-                            state: 'CA',
-                            zip: '91423'
-                        },
-                        date: new Date('2019-07-19T20:57:00.000Z'),
-                        description: 'Delivered, Front Door/Porch',
-                        details: 'Your item was delivered at the front door or porch at 1:57 pm on July 19, 2019 in SHERMAN OAKS, CA 91423.'
-                    },
-                    {
-                        address: {
-                            city: 'Carrollton',
-                            country: '',
-                            state: 'TX',
-                            zip: '75010'
-                        },
-                        date: new Date('2019-07-10T16:08:00.000Z'),
-                        description: 'Picked Up by Shipping Partner, USPS Awaiting Item'
-                    }
-                ],
-                deliveredAt: new Date('2019-07-19T20:57:00.000Z'),
-                url: 'https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=4207866492612927005269000029964826',
-                shippedAt: new Date('2019-07-19T20:57:00.000Z')
-            };
-
-            assert.deepStrictEqual(actual, expected);
-        });
-
-        t.test('should return an empty result if there is no tracking information available ', async () => {
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('0987654321234567890', 'usps', (err, data) => err ? reject(err) : resolve(data));
             });
@@ -190,45 +133,38 @@ test('USPS', { timeout: 10000 }, async (t) => {
             assert.deepStrictEqual(actual, expected);
         });
 
-        t.test('should return tracking information with no errors', async () => {
-            await new Promise((resolve, reject) => {
-                bloodhound.track('9400111899223835077162', 'usps', (err) => err ? reject(err) : resolve());
-            });
-        });
-
-        t.test('should skip Track Details that do no have time stamps', async () => {
-            await new Promise((resolve, reject) => {
-                bloodhound.track('9400110200830244685403', 'usps', (err) => err ? reject(err) : resolve());
-            });
-        });
-
         t.test('should return estimatedDeliveryDate when available in USPS response', async () => {
+            nock('https://apis.usps.com')
+                .post('/oauth2/v3/token')
+                .reply(200, {
+                    access_token: 'test_token',
+                    expires_in: 3600
+                });
+
+            nock('https://apis.usps.com')
+                .post('/tracking/v3r2/tracking')
+                .reply(200, [{
+                    expectedDeliveryDate: '2025-07-28',
+                    statusCategory: 'Delivered',
+                    statusSummary: 'Delivered',
+                    trackingEvents: [{
+                        eventType: 'Delivered',
+                        eventTimestamp: '2025-07-28T12:00:00Z',
+                        eventCity: '',
+                        eventState: '',
+                        eventZIPCode: '',
+                        eventCountry: 'US',
+                        statusCategory: 'Delivered'
+                    }]
+                }]);
+
             const bloodhound = new Bloodhound({
                 usps: {
-                    userId: process.env.USPS_USERID
+                    client_id: process.env.USPS_CLIENT_ID,
+                    client_secret: process.env.USPS_CLIENT_SECRET,
+                    environment_url: 'https://apis.usps.com'
                 }
             });
-
-            nock('https://production.shippingapis.com')
-                .get('/ShippingAPI.dll')
-                .query(true)
-                .reply(200, `
-                <TrackResponse>
-                  <TrackInfo>
-                    <ExpectedDeliveryDate>July 28, 2025</ExpectedDeliveryDate>
-                    <TrackSummary>
-                      <EventTime>12:00 pm</EventTime>
-                      <EventDate>July 28, 2025</EventDate>
-                      <Event>Delivered</Event>
-                      <EventCity></EventCity>
-                      <EventState></EventState>
-                      <EventZIPCode></EventZIPCode>
-                      <EventCountry></EventCountry>
-                      <EventCode>01</EventCode>
-                    </TrackSummary>
-                  </TrackInfo>
-                </TrackResponse>
-              `);
 
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('9400150105798014348298', 'usps', (err, data) => err ? reject(err) : resolve(data));
