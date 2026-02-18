@@ -1,7 +1,7 @@
 const async = require('async');
 const moment = require('moment-timezone');
 
-const USPSClient = require('@stores.com/usps');
+const USPS = require('@stores.com/usps');
 
 const checkDigit = require('../util/checkDigit');
 const geography = require('../util/geography');
@@ -10,8 +10,8 @@ const CITY_BLACKLIST = /DISTRIBUTION CENTER|INTERNATIONAL DISTRIBUTION CENTER|NE
 const DELIVERED_STATUS_CATEGORIES = ['Delivered'];
 const SHIPPED_STATUS_CATEGORIES = ['Accepted', 'Alert', 'Delivered', 'In Transit', 'Out for Delivery'];
 
-function USPS(options) {
-    const usps = new USPSClient(options);
+function USPSCarrier(options) {
+    const usps = new USPS(options);
 
     this.isTrackingNumberValid = (trackingNumber) => {
         // remove whitespace
@@ -201,4 +201,4 @@ function USPS(options) {
     };
 }
 
-module.exports = USPS;
+module.exports = USPSCarrier;
