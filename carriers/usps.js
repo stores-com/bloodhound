@@ -1,23 +1,18 @@
 const async = require('async');
 const moment = require('moment-timezone');
-const parser = require('xml2js');
-const request = require('request');
+
+const USPS = require('@stores.com/usps');
+
 const checkDigit = require('../util/checkDigit');
 const geography = require('../util/geography');
 
-// Remove these words from cities to turn cities like `DISTRIBUTION CENTER INDIANAPOLIS` into `INDIANAPOLIS`
 const CITY_BLACKLIST = /DISTRIBUTION CENTER|INTERNATIONAL DISTRIBUTION CENTER|NETWORK DISTRIBUTION CENTER/ig;
+const DELIVERED_STATUS_CATEGORIES = ['Delivered'];
+const SHIPPED_STATUS_CATEGORIES = ['Accepted', 'Alert', 'Delivered', 'In Transit', 'Out for Delivery'];
 
-// These tracking status codes indicate the shipment was delivered: https://about.usps.com/publications/pub97/pub97_appi.htm
-const DELIVERED_TRACKING_STATUS_CODES = ['01'];
+function USPSCarrier(options) {
+    const usps = new USPS(options);
 
-// These tracking status codes indicate the shipment was shipped (shows movement beyond a shipping label being created): https://about.usps.com/publications/pub97/pub97_appi.htm
-const SHIPPED_TRACKING_STATUS_CODES = ['02', '03', '07', '10', '14', '30', '81', '82', 'AD', 'OF', 'PC', 'SF'];
-
-// The events from these tracking status codes are filtered because they do not provide any useful information: https://about.usps.com/publications/pub97/pub97_appi.htm
-const TRACKING_STATUS_CODES_BLACKLIST = ['NT'];
-
-function USPS(options) {
     this.isTrackingNumberValid = (trackingNumber) => {
         // remove whitespace
         trackingNumber = trackingNumber.replace(/\s/g, '');
@@ -65,161 +60,145 @@ function USPS(options) {
             _options.minDate = new Date(0);
         }
 
-        const xml = `<TrackFieldRequest USERID="${options.userId}"><Revision>1</Revision><ClientIp>${options.clientIp || '127.0.0.1'}</ClientIp><SourceId>${options.sourceId || '@stores.com/bloodhound (+https://github.com/stores-com/bloodhound)'}</SourceId><TrackID ID="${trackingNumber}"/></TrackFieldRequest>`;
-
-        const req = {
-            baseUrl: options.baseUrl || 'https://production.shippingapis.com',
-            method: 'GET',
-            timeout: 5000,
-            url: `/ShippingAPI.dll?API=TrackV2&XML=${encodeURIComponent(xml)}`
-        };
-
         async.retry((callback) => {
-            request(req, callback);
-        }, (err, res) => {
+            usps.getTracking(trackingNumber).then((data) => {
+                callback(null, data);
+            }).catch(callback);
+        }, (err, data) => {
             if (err) {
                 return callback(err);
             }
 
-            parser.parseString(res.body, (err, data) => {
-                const results = {
-                    carrier: 'USPS',
-                    events: [],
-                    raw: data
+            const results = {
+                carrier: 'USPS',
+                events: [],
+                raw: data
+            };
+
+            // Handle response - it's an array with one item
+            const trackingData = Array.isArray(data) ? data[0] : data;
+
+            if (!trackingData || trackingData.error) {
+                // No tracking information or error
+                return callback(trackingData?.error ? new Error(trackingData.error) : null, results);
+            }
+
+            // Handle expected delivery date
+            if (trackingData.expectedDeliveryDate) {
+                const parsedDate = moment.utc(trackingData.expectedDeliveryDate, 'YYYY-MM-DD').toDate();
+                results.estimatedDeliveryDate = {
+                    earliest: parsedDate,
+                    latest: parsedDate
+                };
+            }
+
+            // Process tracking events
+            const trackingEvents = trackingData.trackingEvents || [];
+
+            if (trackingEvents.length === 0 && trackingData.statusSummary) {
+                // If no events but we have status summary, create a single event
+                trackingEvents.push({
+                    eventType: trackingData.statusSummary,
+                    eventTimestamp: trackingData.eventTimestamp || new Date().toISOString(),
+                    eventCity: trackingData.destinationCity || '',
+                    eventState: trackingData.destinationState || '',
+                    eventZIPCode: trackingData.destinationZIP || '',
+                    eventCountry: 'US',
+                    statusCategory: trackingData.statusCategory
+                });
+            }
+
+            // Set address and location for each event
+            trackingEvents.forEach(event => {
+                event.address = {
+                    city: (event.eventCity || '').replace(CITY_BLACKLIST, '').trim(),
+                    country: event.eventCountry || 'US',
+                    state: event.eventState || '',
+                    zip: event.eventZIPCode || ''
                 };
 
+                event.location = geography.addressToString(event.address);
+            });
+
+            // Get unique array of locations
+            const locations = Array.from(new Set(trackingEvents.map(event => event.location)));
+
+            // Lookup each location
+            async.mapLimit(locations, 10, (location, callback) => {
+                geography.parseLocation(location, options, (err, address) => {
+                    if (err || !address) {
+                        return callback(err, address);
+                    }
+
+                    address.location = location;
+
+                    callback(null, address);
+                });
+            }, (err, addresses) => {
                 if (err) {
                     return callback(err);
-                } else if (!data) {
-                    return callback(new Error('Invalid or missing TrackResponse'));
-                } else if (data.Error) {
-                    // Invalid credentials or Invalid Tracking Number
-                    return callback(new Error(data.Error.Description[0]));
-                } else if (!data?.TrackResponse?.TrackInfo?.[0] || data.TrackResponse.TrackInfo[0].Error) {
-                    // No Tracking Information
-                    return callback(null, results);
                 }
 
-                const scanDetailsList = [];
+                trackingEvents.forEach(event => {
+                    const address = addresses.find(a => a && a.location === event.location);
+                    let timezone = 'America/New_York';
 
-                // TrackSummary[0] exists for every item (with valid tracking number)
-                const summary = data.TrackResponse.TrackInfo[0].TrackSummary[0];
-                scanDetailsList.push(summary);
+                    if (address && address.timezone) {
+                        timezone = address.timezone;
+                    }
 
-                const trackDetailList = data.TrackResponse.TrackInfo[0].TrackDetail;
+                    // Parse the timestamp - USPS API returns ISO format like "2025-07-28T12:00:00Z"
+                    const eventDate = moment.tz(event.eventTimestamp, timezone).toDate();
 
-                // If we have tracking details, push them into statuses
-                // Tracking details only exist if the item has more than one status update
-                if (trackDetailList) {
-                    trackDetailList.forEach(trackDetail => {
-                        if (TRACKING_STATUS_CODES_BLACKLIST.includes(trackDetail.EventCode[0])) {
-                            return;
-                        }
-
-                        scanDetailsList.push(trackDetail);
-                    });
-                }
-
-                const trackInfo = data.TrackResponse.TrackInfo[0];
-
-                if (trackInfo?.ExpectedDeliveryDate) {
-                    const parsedDate = moment.utc(trackInfo.ExpectedDeliveryDate[0], 'MMMM D, YYYY').toDate();
-
-                    results.estimatedDeliveryDate = {
-                        earliest: parsedDate,
-                        latest: parsedDate
-                    };
-                }
-
-                // Set address and location of each scan detail
-                scanDetailsList.forEach(scanDetail => {
-                    scanDetail.address = {
-                        city: scanDetail.EventCity[0].replace(CITY_BLACKLIST, '').trim(),
-                        country: scanDetail.EventCountry[0],
-                        state: scanDetail.EventState[0],
-                        zip: scanDetail.EventZIPCode[0]
+                    const bloodhoundEvent = {
+                        address: event.address,
+                        date: eventDate,
+                        description: event.eventType || event.statusCategory || 'Unknown'
                     };
 
-                    scanDetail.location = geography.addressToString(scanDetail.address);
+                    // Ensure event is after minDate (used to prevent data from reused tracking numbers)
+                    if (bloodhoundEvent.date < _options.minDate) {
+                        return;
+                    }
+
+                    if (DELIVERED_STATUS_CATEGORIES.includes(event.statusCategory)) {
+                        results.deliveredAt = bloodhoundEvent.date;
+                    }
+
+                    if (SHIPPED_STATUS_CATEGORIES.includes(event.statusCategory)) {
+                        results.shippedAt = bloodhoundEvent.date;
+                    }
+
+                    // Use the city and state from the parsed address (for scenarios where the city includes the state like "New York, NY")
+                    if (address) {
+                        if (address.city) {
+                            bloodhoundEvent.address.city = address.city;
+                        }
+
+                        if (address.state) {
+                            bloodhoundEvent.address.state = address.state;
+                        }
+                    }
+
+                    results.events.push(bloodhoundEvent);
                 });
 
-                // Get unqiue array of locations
-                const locations = Array.from(new Set(scanDetailsList.map(scanDetail => scanDetail.location)));
+                // Add details to the most recent event
+                if (results.events[0] && trackingData.statusSummary) {
+                    results.events[0].details = trackingData.statusSummary;
+                }
 
-                // Lookup each location
-                async.mapLimit(locations, 10, (location, callback) => {
-                    geography.parseLocation(location, options, (err, address) => {
-                        if (err || !address) {
-                            return callback(err, address);
-                        }
+                // Add url to carrier tracking page
+                results.url = `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${encodeURIComponent(trackingNumber)}`;
 
-                        address.location = location;
+                if (!results.shippedAt && results.deliveredAt) {
+                    results.shippedAt = results.deliveredAt;
+                }
 
-                        callback(null, address);
-                    });
-                }, (err, addresses) => {
-                    if (err) {
-                        return callback(err);
-                    }
-
-                    scanDetailsList.forEach(scanDetail => {
-                        const address = addresses.find(a => a && a.location === scanDetail.location);
-                        let timezone = 'America/New_York';
-
-                        if (address && address.timezone) {
-                            timezone = address.timezone;
-                        }
-
-                        const event = {
-                            address: scanDetail.address,
-                            date: moment.tz(`${scanDetail.EventDate[0]} ${scanDetail.EventTime[0]}`, 'MMMM D, YYYY h:mm a', timezone).toDate(),
-                            description: scanDetail.Event[0]
-                        };
-
-                        // Ensure event is after minDate (used to prevent data from reused tracking numbers)
-                        if (event.date < _options.minDate) {
-                            return;
-                        }
-
-                        if (DELIVERED_TRACKING_STATUS_CODES.includes(scanDetail.EventCode[0])) {
-                            results.deliveredAt = event.date;
-                        }
-
-                        if (SHIPPED_TRACKING_STATUS_CODES.includes(scanDetail.EventCode[0])) {
-                            results.shippedAt = event.date;
-                        }
-
-                        // Use the city and state from the parsed address (for scenarios where the city includes the state like "New York, NY")
-                        if (address) {
-                            if (address.city) {
-                                event.address.city = address.city;
-                            }
-
-                            if (address.state) {
-                                event.address.state = address.state;
-                            }
-                        }
-
-                        results.events.push(event);
-                    });
-
-                    // Add details to the most recent event
-                    if (results.events[0] && data.TrackResponse && data.TrackResponse.TrackInfo && data.TrackResponse.TrackInfo[0] && data.TrackResponse.TrackInfo[0].StatusSummary && data.TrackResponse.TrackInfo[0].StatusSummary[0]) {
-                        results.events[0].details = data.TrackResponse.TrackInfo[0].StatusSummary[0];
-                    }
-
-                    // Add url to carrier tracking page
-                    results.url = `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${encodeURIComponent(trackingNumber)}`;
-
-                    if (!results.shippedAt && results.deliveredAt) {
-                        results.shippedAt = results.deliveredAt;
-                    }
-
-                    callback(null, results);
-                });
+                callback(null, results);
             });
         });
     };
 }
 
-module.exports = USPS;
+module.exports = USPSCarrier;
