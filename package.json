@@ -29,6 +29,7 @@
         "gofo",
         "logistics",
         "newgistics",
+        "ontrac",
         "pitney-bowes",
         "shipping",
         "tracking",
@@ -51,5 +52,5 @@
         "test": "node --test --test-force-exit --test-reporter=spec",
         "test:only": "node --test --test-force-exit --test-only --test-reporter=spec"
     },
-    "version": "3.1.0"
+    "version": "3.2.0"
 }
