@@ -142,7 +142,7 @@ The UPS API requires OAuth 2.0 credentials (client_id and client_secret). You ca
 
 **usps**
 
-The USPS API simply requires a user ID: https://www.usps.com/business/web-tools-apis/track-and-confirm-api.htm
+The USPS API requires OAuth 2.0 credentials (Consumer Key and Consumer Secret). You can obtain these credentials from the USPS Developer Portal by creating a USPS Business Account: https://developers.usps.com/getting-started
 
 **xpo**
 
