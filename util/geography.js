@@ -123,7 +123,7 @@ exports.parseLocation = async.memoize((location, options, callback) => {
     }
 
     if (!process.env.GOOGLE_API_KEY) {
-        return callback(null, null);
+        return callback();
     }
 
     geocode(location, callback);
