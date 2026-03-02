@@ -141,7 +141,7 @@ function USPSCarrier(options) {
 
                 trackingEvents.forEach(event => {
                     const address = addresses.find(a => a && a.location === event.location);
-                    let timezone = 'America/New_York';
+                    let timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                     if (address && address.timezone) {
                         timezone = address.timezone;

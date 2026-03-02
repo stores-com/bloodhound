@@ -100,7 +100,7 @@ function PitneyBowes(options) {
 
                 data.scanDetailsList.forEach(scanDetail => {
                     const address = addresses.find(a => a && a.location === scanDetail.location);
-                    let timezone = 'America/New_York';
+                    let timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                     if (address && address.timezone) {
                         timezone = address.timezone;

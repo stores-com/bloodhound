@@ -132,6 +132,16 @@ The DHL API requires an API key: https://developer.dhl.com.
 
 By default Bloodhound uses the OpenStreetMap geocode provider. You can optionally specify geocoder options which are passed to the [node-geocode](https://www.npmjs.com/package/node-geocoder) module.
 
+**defaultTimezone**
+
+When geocoding is unavailable (e.g. no Google API key), Bloodhound falls back to a default timezone for parsing event timestamps. You can specify this with the `defaultTimezone` option. If not provided, the local machine's timezone is used.
+
+```javascript
+const bloodhound = new Bloodhound({
+    defaultTimezone: 'America/Chicago'
+});
+```
+
 **pettyCache**
 
 By default Bloodhound caches geocode results in-memory locally. You can optionally enable caching of geocoder results to a remote Redis server. These options are passed to the [petty-cache](https://www.npmjs.com/package/petty-cache) module.

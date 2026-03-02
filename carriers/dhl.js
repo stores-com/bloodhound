@@ -143,8 +143,8 @@ function DHL(options) {
                     events.forEach(event => {
                         const address = addresses.find(a => a && a.location === event.locationString);
 
-                        // Use the geolocated timezone, or ET as a default
-                        let timezone = 'America/New_York';
+                        // Use the geolocated timezone, or the configured/local default
+                        let timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                         if (address?.timezone) {
                             timezone = address.timezone;
