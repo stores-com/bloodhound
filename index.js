@@ -55,17 +55,13 @@ function Bloodhound(options) {
 
     options.dhl.defaultTimezone = defaultTimezone;
 
-    if (!options.pitneyBowes) {
-        options.pitneyBowes = {};
+    if (options.pitneyBowes) {
+        options.pitneyBowes.defaultTimezone = defaultTimezone;
     }
 
-    options.pitneyBowes.defaultTimezone = defaultTimezone;
-
-    if (!options.usps) {
-        options.usps = {};
+    if (options.usps) {
+        options.usps.defaultTimezone = defaultTimezone;
     }
-
-    options.usps.defaultTimezone = defaultTimezone;
 
     // Allow DHL to use DHL eCommerce Solutions
     if (options.dhlEcommerceSolutions) {

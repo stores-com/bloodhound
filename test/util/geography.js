@@ -136,7 +136,7 @@ test('geography.parseLocation without GOOGLE_API_KEY', { timeout: 15000 }, async
 
     t.test('should return null when GOOGLE_API_KEY is not set', async () => {
         const actual = await new Promise((resolve, reject) => {
-            geography.parseLocation('Los Angeles, CA', (err, actual) => err ? reject(err) : resolve(actual));
+            geography.parseLocation('Chicago, IL', (err, actual) => err ? reject(err) : resolve(actual));
         });
 
         assert.strictEqual(actual, null);
