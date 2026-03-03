@@ -139,7 +139,7 @@ test('geography.parseLocation without GOOGLE_API_KEY', { timeout: 15000 }, async
             geography.parseLocation('Chicago, IL', (err, actual) => err ? reject(err) : resolve(actual));
         });
 
-        assert.strictEqual(actual, null);
+        assert.strictEqual(actual, undefined);
     });
 });
 

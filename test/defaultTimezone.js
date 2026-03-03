@@ -5,7 +5,7 @@ const nock = require('nock');
 
 const Bloodhound = require('../index.js');
 
-test('defaultTimezone', { concurrency: true }, async (t) => {
+test('defaultTimezone', async (t) => {
     t.test('should default to local machine timezone when not specified', () => {
         const bloodhound = new Bloodhound();
         // Constructor should not throw when no defaultTimezone is provided
