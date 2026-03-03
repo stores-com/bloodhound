@@ -6,6 +6,19 @@ const nock = require('nock');
 const Bloodhound = require('../index.js');
 
 test('defaultTimezone', async (t) => {
+    // Disable geocoding so defaultTimezone is used as the fallback
+    const originalKey = process.env.GOOGLE_API_KEY;
+
+    t.before(() => {
+        delete process.env.GOOGLE_API_KEY;
+    });
+
+    t.after(() => {
+        if (originalKey) {
+            process.env.GOOGLE_API_KEY = originalKey;
+        }
+    });
+
     t.test('should default to local machine timezone when not specified', () => {
         const bloodhound = new Bloodhound();
         // Constructor should not throw when no defaultTimezone is provided
