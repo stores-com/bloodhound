@@ -80,7 +80,7 @@ function USPSCarrier(options) {
 
             if (!trackingData || trackingData.error) {
                 // No tracking information or error
-                return callback(trackingData?.error ? new Error(trackingData.error) : null, results);
+                return callback(trackingData?.error ? new Error(JSON.stringify(trackingData.error)) : null, results);
             }
 
             // Handle expected delivery date
