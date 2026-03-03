@@ -122,6 +122,10 @@ exports.parseLocation = async.memoize((location, options, callback) => {
         }, { ttl: { min: 28512000000, max: 31104000000 } }, callback);
     }
 
+    if (!process.env.GOOGLE_API_KEY) {
+        return callback();
+    }
+
     geocode(location, callback);
 });
 

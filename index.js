@@ -45,9 +45,22 @@ function Bloodhound(options) {
         }
     }
 
+    // Propagate defaultTimezone to carriers that need it
+    const defaultTimezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     // Ensure DHL options exist
     if (!options.dhl) {
         options.dhl = {};
+    }
+
+    options.dhl.defaultTimezone = defaultTimezone;
+
+    if (options.pitneyBowes) {
+        options.pitneyBowes.defaultTimezone = defaultTimezone;
+    }
+
+    if (options.usps) {
+        options.usps.defaultTimezone = defaultTimezone;
     }
 
     // Allow DHL to use DHL eCommerce Solutions

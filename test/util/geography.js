@@ -121,6 +121,28 @@ test('petty-cache', { concurrency: true, timeout: 15000 }, async (t) => {
     });
 });
 
+test('geography.parseLocation without GOOGLE_API_KEY', { timeout: 15000 }, async (t) => {
+    const originalKey = process.env.GOOGLE_API_KEY;
+
+    t.before(() => {
+        delete process.env.GOOGLE_API_KEY;
+    });
+
+    t.after(() => {
+        if (originalKey) {
+            process.env.GOOGLE_API_KEY = originalKey;
+        }
+    });
+
+    t.test('should return null when GOOGLE_API_KEY is not set', async () => {
+        const actual = await new Promise((resolve, reject) => {
+            geography.parseLocation('Chicago, IL', (err, actual) => err ? reject(err) : resolve(actual));
+        });
+
+        assert.strictEqual(actual, undefined);
+    });
+});
+
 test('Google geocoder', async (t) => {
     const geocoder = geography.geocoder;
     geography.geocoder = NodeGeocoder({ apiKey: process.env.GOOGLE_API_KEY, language: 'en', provider: 'google', region: '.us' });
