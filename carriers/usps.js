@@ -66,6 +66,12 @@ function USPSCarrier(options) {
             }).catch(callback);
         }, (err, data) => {
             if (err) {
+                // USPS returns 404 when package not found or not yet scanned.
+                // Treat as empty results to match old XML API behavior (silent, not an error).
+                if (err.cause?.status === 404) {
+                    return callback(null, { carrier: 'USPS', events: [], raw: err.json });
+                }
+
                 return callback(err);
             }
 
