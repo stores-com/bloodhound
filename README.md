@@ -1,7 +1,7 @@
 # Bloodhound
 
 [![Build Status](https://github.com/stores-com/bloodhound/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/stores-com/bloodhound/actions?query=workflow%3Abuild+branch%3Amain)
-[![Coverage Status](https://coveralls.io/repos/github/stores-com/bloodhound/badge.svg)](https://coveralls.io/github/stores-com/bloodhound)
+[![Coverage Status](https://coveralls.io/repos/github/stores-com/bloodhound/badge.svg?branch=main)](https://coveralls.io/github/stores-com/bloodhound?branch=main)
 [![npm version](https://img.shields.io/npm/v/@stores.com/bloodhound)](https://www.npmjs.com/package/@stores.com/bloodhound)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
