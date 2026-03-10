@@ -98,6 +98,15 @@ test('USPS', { timeout: 10000 }, async (t) => {
         });
     });
 
+    t.test('should set shippedAt for a tracked USPS package', async () => {
+        const actual = await new Promise((resolve, reject) => {
+            bloodhound.track('9400150106151109769726', 'usps', (err, data) => err ? reject(err) : resolve(data));
+        });
+
+        assert(actual.shippedAt, 'shippedAt should be set');
+        assert(util.types.isDate(actual.shippedAt), 'shippedAt should be a Date');
+    });
+
     t.test('USPS Tracking', { concurrency: true }, async (t) => {
         t.test('should return an empty result if there is no tracking information available', async () => {
             nock('https://apis.usps.com')
