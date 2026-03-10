@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.3] - 2026-03-10
+### Fixed
+- Fixed USPS `shippedAt`/`deliveredAt` never being set with v3r2 API. The API returns `statusCategory` at the top level only, not on individual `trackingEvents`. Added fallback to check top-level `statusCategory`.
+- Added `'On the Way'` to `SHIPPED_STATUS_CATEGORIES` to match v3r2 API values.
+- Fixed CI workflow to use `USPS_CLIENT_ID`/`USPS_CLIENT_SECRET` instead of legacy `USPS_USERID`.
+- Fixed invalid characters test to expect empty results instead of an error, matching v3r2 API behavior.
+
 ## [3.4.0] - 2026-03-02
 ### Added
 - Added configurable `defaultTimezone` option.

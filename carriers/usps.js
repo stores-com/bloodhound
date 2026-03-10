@@ -8,7 +8,7 @@ const geography = require('../util/geography');
 
 const CITY_BLACKLIST = /DISTRIBUTION CENTER|INTERNATIONAL DISTRIBUTION CENTER|NETWORK DISTRIBUTION CENTER/ig;
 const DELIVERED_STATUS_CATEGORIES = ['Delivered'];
-const SHIPPED_STATUS_CATEGORIES = ['Accepted', 'Alert', 'Delivered', 'In Transit', 'Out for Delivery'];
+const SHIPPED_STATUS_CATEGORIES = ['Accepted', 'Alert', 'Delivered', 'In Transit', 'On the Way', 'Out for Delivery'];
 
 function USPSCarrier(options) {
     const usps = new USPS(options);
@@ -192,6 +192,15 @@ function USPSCarrier(options) {
                 // Add details to the most recent event
                 if (results.events[0] && trackingData.statusSummary) {
                     results.events[0].details = trackingData.statusSummary;
+                }
+
+                // Fallback: use top-level statusCategory if per-event statusCategory was missing
+                if (!results.deliveredAt && DELIVERED_STATUS_CATEGORIES.includes(trackingData.statusCategory) && results.events.length) {
+                    results.deliveredAt = results.events[0].date;
+                }
+
+                if (!results.shippedAt && SHIPPED_STATUS_CATEGORIES.includes(trackingData.statusCategory) && results.events.length) {
+                    results.shippedAt = results.events[0].date;
                 }
 
                 // Add url to carrier tracking page

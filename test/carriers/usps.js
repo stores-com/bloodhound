@@ -89,12 +89,12 @@ test('USPS', { timeout: 10000 }, async (t) => {
             assert(err);
         });
 
-        t.test('should return an error for a tracking number that contains invalid characters', async () => {
-            const err = await new Promise((resolve) => {
-                bloodhound.track('12c &^trackf0', 'usps', (err) => resolve(err));
+        t.test('should return empty results for a tracking number that contains invalid characters', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('12c &^trackf0', 'usps', (err, data) => err ? reject(err) : resolve(data));
             });
 
-            assert(err);
+            assert.deepStrictEqual(actual.events, []);
         });
     });
 
@@ -174,6 +174,95 @@ test('USPS', { timeout: 10000 }, async (t) => {
             assert.strictEqual(actual.estimatedDeliveryDate.latest.toISOString(), '2025-07-28T00:00:00.000Z');
             assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.earliest), true, 'earliest is not a valid Date object');
             assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.latest), true, 'latest is not a valid Date object');
+        });
+
+        t.test('should set shippedAt from top-level statusCategory when per-event statusCategory is missing', async () => {
+            nock('https://apis.usps.com')
+                .post('/oauth2/v3/token')
+                .reply(200, {
+                    access_token: 'test_token',
+                    expires_in: 3600
+                });
+
+            nock('https://apis.usps.com')
+                .post('/tracking/v3r2/tracking')
+                .reply(200, [{
+                    statusCategory: 'In Transit',
+                    statusSummary: 'In Transit to Next Facility',
+                    trackingEvents: [{
+                        eventType: 'Arrived at USPS Facility',
+                        eventCode: 'A1',
+                        eventTimestamp: '2026-03-09T09:37:33Z',
+                        eventCity: 'JACKSON',
+                        eventState: 'MS',
+                        eventZIPCode: '',
+                        eventCountry: 'US'
+                    }, {
+                        eventType: 'Shipping Label Created',
+                        eventCode: 'GX',
+                        eventTimestamp: '2026-02-27T15:26:20Z',
+                        eventCity: 'CARROLLTON',
+                        eventState: 'TX',
+                        eventZIPCode: '75010',
+                        eventCountry: 'US'
+                    }]
+                }]);
+
+            const bloodhound = new Bloodhound({
+                usps: {
+                    client_id: process.env.USPS_CLIENT_ID,
+                    client_secret: process.env.USPS_CLIENT_SECRET,
+                    environment_url: 'https://apis.usps.com'
+                }
+            });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('9400150106151109769726', 'usps', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert(actual.shippedAt, 'shippedAt should be set');
+            assert(util.types.isDate(actual.shippedAt), 'shippedAt should be a Date');
+        });
+
+        t.test('should set deliveredAt from top-level statusCategory when per-event statusCategory is missing', async () => {
+            nock('https://apis.usps.com')
+                .post('/oauth2/v3/token')
+                .reply(200, {
+                    access_token: 'test_token',
+                    expires_in: 3600
+                });
+
+            nock('https://apis.usps.com')
+                .post('/tracking/v3r2/tracking')
+                .reply(200, [{
+                    statusCategory: 'Delivered',
+                    statusSummary: 'Delivered, In/At Mailbox',
+                    trackingEvents: [{
+                        eventType: 'Delivered, In/At Mailbox',
+                        eventCode: '01',
+                        eventTimestamp: '2026-03-10T14:30:00Z',
+                        eventCity: 'JACKSON',
+                        eventState: 'MS',
+                        eventZIPCode: '39201',
+                        eventCountry: 'US'
+                    }]
+                }]);
+
+            const bloodhound = new Bloodhound({
+                usps: {
+                    client_id: process.env.USPS_CLIENT_ID,
+                    client_secret: process.env.USPS_CLIENT_SECRET,
+                    environment_url: 'https://apis.usps.com'
+                }
+            });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('9400150106151109769726', 'usps', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert(actual.deliveredAt, 'deliveredAt should be set');
+            assert(util.types.isDate(actual.deliveredAt), 'deliveredAt should be a Date');
+            assert(actual.shippedAt, 'shippedAt should also be set');
         });
     });
 });
