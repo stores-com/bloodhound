@@ -89,12 +89,12 @@ test('USPS', { timeout: 10000 }, async (t) => {
             assert(err);
         });
 
-        t.test('should return an error for a tracking number that contains invalid characters', async () => {
-            const err = await new Promise((resolve) => {
-                bloodhound.track('12c &^trackf0', 'usps', (err) => resolve(err));
+        t.test('should return empty results for a tracking number that contains invalid characters', async () => {
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('12c &^trackf0', 'usps', (err, data) => err ? reject(err) : resolve(data));
             });
 
-            assert(err);
+            assert.deepStrictEqual(actual.events, []);
         });
     });
 
