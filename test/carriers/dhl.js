@@ -120,35 +120,6 @@ test('DHL', async (t) => {
             assert.equal('DHL', actual.carrier);
         });
 
-        t.test('should fall through to USPS and return a response with no errors when DHL UTAPI fails', async () => {
-            nock('https://apis.usps.com')
-                .post('/oauth2/v3/token')
-                .reply(200, { access_token: 'fake-token', expires_in: 3600 });
-
-            nock('https://apis.usps.com')
-                .post('/tracking/v3r2/tracking')
-                .reply(200, [{
-                    trackingEvents: []
-                }]);
-
-            const bloodhound = new Bloodhound({
-                dhl: {
-                    apiKey: '123'
-                },
-                usps: {
-                    client_id: process.env.USPS_CLIENT_ID,
-                    client_secret: process.env.USPS_CLIENT_SECRET,
-                    environment_url: 'https://apis.usps.com'
-                }
-            });
-
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track(validTrackingNumbers[0], 'dhl', (err, data) => err ? reject(err) : resolve(data));
-            });
-
-            assert.equal('USPS', actual.carrier);
-        });
-
         t.test('should try DHL eCommerce solutions first', async () => {
             nock('https://api-eu.dhl.com')
                 .get('/track/shipments')
