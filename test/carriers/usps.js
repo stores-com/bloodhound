@@ -8,13 +8,6 @@ const Bloodhound = require('../../index');
 const USPS = require('../../carriers/usps.js');
 
 test('USPS', { timeout: 10000 }, async (t) => {
-    const bloodhound = new Bloodhound({
-        usps: {
-            client_id: process.env.USPS_CLIENT_ID,
-            client_secret: process.env.USPS_CLIENT_SECRET
-        }
-    });
-
     t.test('usps.isTrackingNumberValid', { concurrency: true }, async (t) => {
         const usps = new USPS();
 
