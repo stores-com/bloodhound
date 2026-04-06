@@ -183,6 +183,7 @@ bloodhound.track('tracking number', { carrier: 'USPS' }, function(err, data) {
 **Data**
 ```json
 {
+    "carrier": "USPS",
     "deliveredAt": "2019-06-30T18:03:00.000Z",
     "estimatedDeliveryDate": {
         "earliest": "2019-06-28T13:00:00.000Z",
@@ -192,6 +193,7 @@ bloodhound.track('tracking number', { carrier: 'USPS' }, function(err, data) {
         {
             "address": {
                 "city": "CARROLLTON",
+                "country": "US",
                 "state": "TX",
                 "zip": "75010"
             },
@@ -201,6 +203,7 @@ bloodhound.track('tracking number', { carrier: 'USPS' }, function(err, data) {
         {
             "address": {
                 "city": "CARROLLTON",
+                "country": "US",
                 "state": "TX",
                 "zip": "75010"
             },
@@ -208,6 +211,8 @@ bloodhound.track('tracking number', { carrier: 'USPS' }, function(err, data) {
             "description": "Sorting Complete"
         }
     ],
-    "shippedAt": "2019-05-13T17:32:00.000Z"
+    "raw": {},
+    "shippedAt": "2019-05-13T17:32:00.000Z",
+    "url": "https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=..."
 }
 ```
