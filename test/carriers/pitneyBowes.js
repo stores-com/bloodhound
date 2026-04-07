@@ -2,6 +2,7 @@ const assert = require('node:assert');
 const test = require('node:test');
 
 const Bloodhound = require('../../index.js');
+const PitneyBowes = require('../../carriers/pitneyBowes.js');
 
 const mockTrackingResponse = {
     packageCount: 1,
@@ -417,5 +418,75 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
         assert(results.deliveredAt);
         assert(results.shippedAt);
         assert.strictEqual(results.shippedAt.getTime(), results.deliveredAt.getTime());
+    });
+
+    await t.test('should handle options as callback when calling carrier directly', async (t) => {
+        const originalFetch = mockFetch('4203300992612927005269000093974783');
+        t.after(() => { global.fetch = originalFetch; });
+
+        const carrier = new PitneyBowes({ api_key: 'test', api_secret: 'test' });
+
+        const results = await new Promise((resolve, reject) => {
+            carrier.track('4203300992612927005269000093974783', (err, data) => err ? reject(err) : resolve(data));
+        });
+
+        assert(results);
+        assert(results.events.length > 0);
+    });
+
+    await t.test('should fall back to defaultTimezone when eventTimeOffset is missing', async (t) => {
+        const originalFetch = global.fetch;
+        t.after(() => { global.fetch = originalFetch; });
+
+        global.fetch = async (url) => {
+            if (typeof url === 'string' && url.includes('/oauth/token')) {
+                return new Response(JSON.stringify({
+                    access_token: 'mock_token',
+                    tokenType: 'BearerToken',
+                    issuedAt: Date.now().toString(),
+                    expiresIn: '36000',
+                    clientID: 'mock',
+                    org: 'pitneybowes'
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            if (typeof url === 'string' && url.includes('/v1/tracking/')) {
+                return new Response(JSON.stringify({
+                    trackingNumber: '4203300992612927005269000093974783',
+                    carrier: 'USPS',
+                    scanDetailsList: [
+                        {
+                            standardizedEventCode: 'DLD',
+                            scanType: '01',
+                            scanDescription: 'Delivered',
+                            packageStatus: 'Delivered',
+                            eventDate: '2026-03-30',
+                            eventTime: '10:45:00',
+                            eventCity: 'SPRING BRANCH',
+                            eventStateOrProvince: 'TX',
+                            postalCode: '78070',
+                            country: 'US'
+                        }
+                    ]
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            return originalFetch(url);
+        };
+
+        const bloodhound = new Bloodhound({
+            pitneyBowes: {
+                api_key: 'test',
+                api_secret: 'test',
+                defaultTimezone: 'America/Chicago'
+            }
+        });
+
+        const results = await new Promise((resolve, reject) => {
+            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
+        });
+
+        assert.strictEqual(results.events.length, 1);
+        assert(results.events[0].date instanceof Date);
     });
 });
