@@ -67,8 +67,9 @@ function USPSCarrier(options) {
         }, (err, data) => {
             if (err) {
                 // USPS returns 404 when package not found or not yet scanned.
+                // USPS returns 503 for invalid/malformed tracking numbers.
                 // Treat as empty results to match old XML API behavior (silent, not an error).
-                if (err.cause?.status === 404) {
+                if (err.cause?.status === 404 || err.cause?.status === 503) {
                     return callback(null, { carrier: 'USPS', events: [], raw: err.json });
                 }
 
