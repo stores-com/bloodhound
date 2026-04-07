@@ -11,7 +11,7 @@
         "moment-timezone": "~0.5.28",
         "node-geocoder": "~3.28.0",
         "petty-cache": "~3.7.0",
-        "pitney-bowes": "~0.3.1",
+        "pitney-bowes": "~1.0.0",
         "tz-lookup": "~6.1.25",
         "us-states-normalize": "~1.0.0",
         "xml2js": "~0.4.23"
@@ -53,5 +53,5 @@
         "test": "node --test --test-force-exit --test-reporter=spec",
         "test:only": "node --test --test-force-exit --test-only --test-reporter=spec"
     },
-    "version": "4.0.0"
+    "version": "3.5.0"
 }

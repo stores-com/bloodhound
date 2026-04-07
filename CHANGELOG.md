@@ -4,9 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.0.0] - 2026-04-07
-### Removed
-- Removed USPS fallback tracking from DHL and UPS carriers. When their APIs fail, errors now propagate directly instead of silently falling back to USPS.
+## [3.5.0] - 2026-04-07
+### Changed
+- Updated pitney-bowes to v1.0.0 (async/await, native fetch, `@stores.com/http-error`)
+- Replaced callback-based `pitneyBowesClient.tracking()` with Promise-based call
+- Removed `async.retry` wrapper from Pitney Bowes carrier
+
+### Added
+- Added comprehensive tests for Pitney Bowes carrier (tracking events, delivered/shipped detection, city blacklist, Newgistics carrier, 404 handling, minDate filtering, IMB tracking)
 
 ## [3.4.3] - 2026-03-10
 ### Fixed
