@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-04-07
+### Changed
+- Updated pitney-bowes to v1.0.0 (async/await, native fetch, `@stores.com/http-error`)
+- Replaced callback-based `pitneyBowesClient.tracking()` with Promise-based call
+- Removed `async.retry` wrapper from Pitney Bowes carrier
+
+### Added
+- Added comprehensive tests for Pitney Bowes carrier (tracking events, delivered/shipped detection, city blacklist, Newgistics carrier, 404 handling, minDate filtering, IMB tracking)
+
 ## [3.4.3] - 2026-03-10
 ### Fixed
 - Fixed USPS `shippedAt`/`deliveredAt` never being set with v3r2 API. The API returns `statusCategory` at the top level only, not on individual `trackingEvents`. Added fallback to check top-level `statusCategory`.
