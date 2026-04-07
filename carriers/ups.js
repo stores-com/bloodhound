@@ -1,10 +1,7 @@
 const UPS = require('@stores.com/ups');
 
-const USPS = require('./usps');
-
 module.exports = function(options) {
     const ups = new UPS(options);
-    const usps = new USPS(options?.usps);
 
     this.isTrackingNumberValid = (trackingNumber) => {
         // Remove whitespace
@@ -66,10 +63,6 @@ module.exports = function(options) {
 
             callback(null, results);
         } catch (err) {
-            if (options.usps && usps.isTrackingNumberValid(trackingNumber)) {
-                return usps.track(trackingNumber, _options, callback);
-            }
-
             callback(err);
         }
     };
