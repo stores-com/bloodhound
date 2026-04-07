@@ -302,4 +302,120 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
         assert(capturedUrl.includes('00042902529942000716'));
         assert.strictEqual(results.url, 'https://tracking.pb.com/00042902529942000716');
     });
+
+    await t.test('should handle options as callback (no options argument)', async (t) => {
+        const originalFetch = mockFetch('4203300992612927005269000093974783');
+        t.after(() => { global.fetch = originalFetch; });
+
+        const bloodhound = new Bloodhound({
+            pitneyBowes: {
+                api_key: 'test',
+                api_secret: 'test'
+            }
+        });
+
+        const results = await new Promise((resolve, reject) => {
+            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
+        });
+
+        assert(results);
+        assert(results.events.length > 0);
+    });
+
+    await t.test('should return empty events when response has no scanDetailsList', async (t) => {
+        const originalFetch = global.fetch;
+        t.after(() => { global.fetch = originalFetch; });
+
+        global.fetch = async (url, options) => {
+            if (typeof url === 'string' && url.includes('/oauth/token')) {
+                return new Response(JSON.stringify({
+                    access_token: 'mock_token',
+                    tokenType: 'BearerToken',
+                    issuedAt: Date.now().toString(),
+                    expiresIn: '36000',
+                    clientID: 'mock',
+                    org: 'pitneybowes'
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            if (typeof url === 'string' && url.includes('/v1/tracking/')) {
+                return new Response(JSON.stringify({
+                    trackingNumber: '4203300992612927005269000093974783',
+                    carrier: 'USPS'
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            return originalFetch(url, options);
+        };
+
+        const bloodhound = new Bloodhound({
+            pitneyBowes: {
+                api_key: 'test',
+                api_secret: 'test'
+            }
+        });
+
+        const results = await new Promise((resolve, reject) => {
+            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
+        });
+
+        assert.strictEqual(results.carrier, 'Pitney Bowes');
+        assert.strictEqual(results.events.length, 0);
+    });
+
+    await t.test('should set shippedAt to deliveredAt when only delivered', async (t) => {
+        const originalFetch = global.fetch;
+        t.after(() => { global.fetch = originalFetch; });
+
+        global.fetch = async (url, options) => {
+            if (typeof url === 'string' && url.includes('/oauth/token')) {
+                return new Response(JSON.stringify({
+                    access_token: 'mock_token',
+                    tokenType: 'BearerToken',
+                    issuedAt: Date.now().toString(),
+                    expiresIn: '36000',
+                    clientID: 'mock',
+                    org: 'pitneybowes'
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            if (typeof url === 'string' && url.includes('/v1/tracking/')) {
+                return new Response(JSON.stringify({
+                    trackingNumber: '4203300992612927005269000093974783',
+                    carrier: 'USPS',
+                    scanDetailsList: [
+                        {
+                            standardizedEventCode: 'DLD',
+                            scanType: '01',
+                            scanDescription: 'Delivered',
+                            packageStatus: 'Delivered',
+                            eventDate: '2026-03-30',
+                            eventTime: '10:45:00',
+                            eventCity: 'SPRING BRANCH',
+                            eventStateOrProvince: 'TX',
+                            postalCode: '78070',
+                            country: 'US'
+                        }
+                    ]
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            return originalFetch(url, options);
+        };
+
+        const bloodhound = new Bloodhound({
+            pitneyBowes: {
+                api_key: 'test',
+                api_secret: 'test'
+            }
+        });
+
+        const results = await new Promise((resolve, reject) => {
+            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
+        });
+
+        assert(results.deliveredAt);
+        assert(results.shippedAt);
+        assert.strictEqual(results.shippedAt.getTime(), results.deliveredAt.getTime());
+    });
 });
