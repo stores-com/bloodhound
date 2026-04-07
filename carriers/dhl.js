@@ -3,7 +3,6 @@ const moment = require('moment-timezone');
 const request = require('request');
 
 const DhlEcommerceSolutions = require('./dhlEcommerceSolutions');
-const USPS = require('./usps');
 
 // These tracking descriptions indicate the shipment was delivered
 const DELIVERED_TRACKING_DESCRIPTIONS = ['DELIVERED'];
@@ -15,7 +14,6 @@ const geography = require('../util/geography');
 
 function DHL(options) {
     const dhlEcommerceSolutions = new DhlEcommerceSolutions(options && options.dhlEcommerceSolutions);
-    const usps = new USPS(options && options.usps);
 
     this.isTrackingNumberValid = (trackingNumber) => {
         // Remove spaces and uppercase
@@ -73,11 +71,6 @@ function DHL(options) {
                 });
             }, (err, body) => {
                 if (err) {
-                    // If UTAPI fails, try USPS
-                    if (options.usps && usps.isTrackingNumberValid(trackingNumber)) {
-                        return usps.track(trackingNumber, _options, callback);
-                    }
-
                     return callback(err);
                 }
 

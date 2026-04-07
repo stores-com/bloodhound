@@ -68,16 +68,6 @@ function Bloodhound(options) {
         options.dhl.dhlEcommerceSolutions = options.dhlEcommerceSolutions;
     }
 
-    // Allow DHL to use USPS
-    if (options.usps) {
-        options.dhl.usps = options.usps;
-    }
-
-    // Allow UPS to use USPS for UPS Mail Innovations tracking numbers
-    if (options.ups && options.usps) {
-        options.ups.usps = options.usps;
-    }
-
     const amazon = new Amazon(options && options.amazon);
     const dhl = new DHL(options && options.dhl);
     const fedEx = new FedEx(options && options.fedEx);

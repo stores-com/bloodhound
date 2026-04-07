@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-04-07
+### Removed
+- Removed USPS fallback tracking from DHL and UPS carriers. When their APIs fail, errors now propagate directly instead of silently falling back to USPS.
+
 ## [3.4.3] - 2026-03-10
 ### Fixed
 - Fixed USPS `shippedAt`/`deliveredAt` never being set with v3r2 API. The API returns `statusCategory` at the top level only, not on individual `trackingEvents`. Added fallback to check top-level `statusCategory`.
