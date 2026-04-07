@@ -30,131 +30,134 @@ function PitneyBowes(options) {
         // Pitney Bowes Marketing Mail Flats (length 31): 0004290252994200071698133931119
         const isImb = trackingNumber.length === 31;
 
-        async.retry((callback) => {
-            if (isImb) {
-                return pitneyBowesClient.tracking({ carrier: 'IMB', trackingNumber: trackingNumber.substring(0, 20) }, callback);
-            }
+        const trackArgs = isImb
+            ? { carrier: 'IMB', trackingNumber: trackingNumber.substring(0, 20) }
+            : { carrier: 'FDR', trackingNumber };
 
-            // Pitney Bowes Standard (length 34): 4201913892748927005269000023298282
-            pitneyBowesClient.tracking({ carrier: 'FDR', trackingNumber }, callback);
-        }, (err, data) => {
-            const results = {
-                carrier: 'Pitney Bowes',
-                events: [],
-                raw: data
-            };
-
-            if (_options && _options.carrier && _options.carrier.toLowerCase() === 'newgistics') {
-                results.carrier = 'Newgistics';
-            }
-
-            if (err) {
-                if (err.message === 'Not Found') {
-                    return callback(null, results);
-                }
-
-                return callback(err);
-            }
-
-            if (!data | !data.scanDetailsList) {
-                return callback(null, results);
-            }
-
-            // Set address and location of each scan detail
-            data.scanDetailsList.forEach(scanDetail => {
-                scanDetail.address = {
-                    city: scanDetail.eventCity,
-                    country: scanDetail.country,
-                    state: scanDetail.eventStateOrProvince,
-                    zip: scanDetail.postalCode
-                };
-
-                if (scanDetail.address.city) {
-                    scanDetail.address.city = scanDetail.address.city.toString().replace(CITY_BLACKLIST, '').trim();
-                }
-
-                scanDetail.location = geography.addressToString(scanDetail.address);
-            });
-
-            // Get unique array of locations (remove falsy values)
-            const locations = Array.from(new Set(data.scanDetailsList.map(scanDetail => scanDetail.location))).filter(l => l);
-
-            // Lookup each location
-            async.mapLimit(locations, 10, (location, callback) => {
-                geography.parseLocation(location, options, (err, address) => {
-                    if (err || !address) {
-                        return callback(err, address);
-                    }
-
-                    address.location = location;
-
-                    callback(null, address);
-                });
-            }, (err, addresses) => {
-                if (err) {
-                    return callback(err);
-                }
-
-                // Sort list by date/time
-                data.scanDetailsList.sort((a, b) => `${a.eventDate} ${a.eventTime}` - `${b.eventDate} ${b.eventTime}`);
-
-                data.scanDetailsList.forEach(scanDetail => {
-                    const address = addresses.find(a => a && a.location === scanDetail.location);
-                    let timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-                    if (address && address.timezone) {
-                        timezone = address.timezone;
-                    }
-
-                    const event = {
-                        address: scanDetail.address,
-                        date: moment.tz(`${scanDetail.eventDate} ${scanDetail.eventTime}`, 'YYYY-MM-DD HH:mm:ss', timezone).toDate(),
-                        description: scanDetail.scanDescription
-                    };
-
-                    // Ensure event is after minDate (used to prevent data from reused tracking numbers)
-                    if (event.date < _options.minDate) {
-                        return;
-                    }
-
-                    if (DELIVERED_TRACKING_STATUS_CODES.includes(scanDetail?.scanType?.toString())) {
-                        results.deliveredAt = new Date(event.date);
-                    }
-
-                    if (SHIPPED_TRACKING_STATUS_CODES.includes(scanDetail?.scanType?.toString())) {
-                        results.shippedAt = new Date(event.date);
-                    }
-
-                    // Use the city and state from the parsed address (for scenarios where the city includes the state like "New York, NY")
-                    if (address) {
-                        if (address.city) {
-                            event.address.city = address.city;
-                        }
-
-                        if (address.state) {
-                            event.address.state = address.state;
-                        }
-                    }
-
-                    results.events.push(event);
-                });
-
-                // Add URL to carrier tracking page
-                results.url = `https://pitneybowes.shipment.co/track/${trackingNumber}`;
-
-                if (isImb) {
-                    results.url = `https://tracking.pb.com/${trackingNumber.substring(0, 20)}`;
-                }
-
-                if (!results.shippedAt && results.deliveredAt) {
-                    results.shippedAt = results.deliveredAt;
-                }
-
-                results.events = results.events.reverse();
-                callback(null, results);
-            });
+        pitneyBowesClient.tracking(trackArgs).then((data) => {
+            processTrackingData(null, data, isImb, trackingNumber, _options, options, callback);
+        }).catch((err) => {
+            processTrackingData(err, null, isImb, trackingNumber, _options, options, callback);
         });
     };
+}
+
+function processTrackingData(err, data, isImb, trackingNumber, _options, options, callback) {
+    const results = {
+        carrier: 'Pitney Bowes',
+        events: [],
+        raw: data
+    };
+
+    if (_options && _options.carrier && _options.carrier.toLowerCase() === 'newgistics') {
+        results.carrier = 'Newgistics';
+    }
+
+    if (err) {
+        if (err.message === '404 Not Found') {
+            return callback(null, results);
+        }
+
+        return callback(err);
+    }
+
+    if (!data | !data.scanDetailsList) {
+        return callback(null, results);
+    }
+
+    // Set address and location of each scan detail
+    data.scanDetailsList.forEach(scanDetail => {
+        scanDetail.address = {
+            city: scanDetail.eventCity,
+            country: scanDetail.country,
+            state: scanDetail.eventStateOrProvince,
+            zip: scanDetail.postalCode
+        };
+
+        if (scanDetail.address.city) {
+            scanDetail.address.city = scanDetail.address.city.toString().replace(CITY_BLACKLIST, '').trim();
+        }
+
+        scanDetail.location = geography.addressToString(scanDetail.address);
+    });
+
+    // Get unique array of locations (remove falsy values)
+    const locations = Array.from(new Set(data.scanDetailsList.map(scanDetail => scanDetail.location))).filter(l => l);
+
+    // Lookup each location
+    async.mapLimit(locations, 10, (location, callback) => {
+        geography.parseLocation(location, options, (err, address) => {
+            if (err || !address) {
+                return callback(err, address);
+            }
+
+            address.location = location;
+
+            callback(null, address);
+        });
+    }, (err, addresses) => {
+        if (err) {
+            return callback(err);
+        }
+
+        // Sort list by date/time
+        data.scanDetailsList.sort((a, b) => `${a.eventDate} ${a.eventTime}` - `${b.eventDate} ${b.eventTime}`);
+
+        data.scanDetailsList.forEach(scanDetail => {
+            const address = addresses.find(a => a && a.location === scanDetail.location);
+            let timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+            if (address && address.timezone) {
+                timezone = address.timezone;
+            }
+
+            const event = {
+                address: scanDetail.address,
+                date: moment.tz(`${scanDetail.eventDate} ${scanDetail.eventTime}`, 'YYYY-MM-DD HH:mm:ss', timezone).toDate(),
+                description: scanDetail.scanDescription
+            };
+
+            // Ensure event is after minDate (used to prevent data from reused tracking numbers)
+            if (event.date < _options.minDate) {
+                return;
+            }
+
+            if (DELIVERED_TRACKING_STATUS_CODES.includes(scanDetail?.scanType?.toString())) {
+                results.deliveredAt = new Date(event.date);
+            }
+
+            if (SHIPPED_TRACKING_STATUS_CODES.includes(scanDetail?.scanType?.toString())) {
+                results.shippedAt = new Date(event.date);
+            }
+
+            // Use the city and state from the parsed address (for scenarios where the city includes the state like "New York, NY")
+            if (address) {
+                if (address.city) {
+                    event.address.city = address.city;
+                }
+
+                if (address.state) {
+                    event.address.state = address.state;
+                }
+            }
+
+            results.events.push(event);
+        });
+
+        // Add URL to carrier tracking page
+        results.url = `https://pitneybowes.shipment.co/track/${trackingNumber}`;
+
+        if (isImb) {
+            results.url = `https://tracking.pb.com/${trackingNumber.substring(0, 20)}`;
+        }
+
+        if (!results.shippedAt && results.deliveredAt) {
+            results.shippedAt = results.deliveredAt;
+        }
+
+        results.events = results.events.reverse();
+        callback(null, results);
+    });
 }
 
 module.exports = PitneyBowes;
