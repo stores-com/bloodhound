@@ -115,7 +115,7 @@ function processTrackingData(err, data, isImb, trackingNumber, _options, options
         results.shippedAt = results.deliveredAt;
     }
 
-    results.events = results.events.reverse();
+    results.events.sort((a, b) => b.date - a.date);
     callback(null, results);
 }
 
