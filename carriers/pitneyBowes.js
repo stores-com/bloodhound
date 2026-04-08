@@ -29,7 +29,7 @@ function PitneyBowes(options) {
 
         const trackArgs = isImb
             ? { carrier: 'IMB', trackingNumber: trackingNumber.substring(0, 20) }
-            : { carrier: 'FDR', trackingNumber };
+            : { carrier: 'USPS', trackingNumber };
 
         pitneyBowesClient.tracking(trackArgs).then((data) => {
             processTrackingData(null, data, isImb, trackingNumber, _options, options, callback);
