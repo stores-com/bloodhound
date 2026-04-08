@@ -151,12 +151,12 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
         assert(results.shippedAt);
         assert.strictEqual(results.url, 'https://pitneybowes.shipment.co/track/4203300992612927005269000093974783');
 
-        // Events are in reverse order (last in mock data comes first after reverse)
-        assert.strictEqual(results.events[0].description, 'Shipping Label Created, USPS Awaiting Item');
-        assert.strictEqual(results.events[4].description, 'Delivered, In/At Mailbox');
+        // Events are sorted by date descending (most recent first)
+        assert.strictEqual(results.events[0].description, 'Delivered, In/At Mailbox');
+        assert.strictEqual(results.events[4].description, 'Shipping Label Created, USPS Awaiting Item');
 
-        // Address parsed correctly (last event is the delivered one)
-        const deliveredEvent = results.events[results.events.length - 1];
+        // Address parsed correctly (first event is the delivered one)
+        const deliveredEvent = results.events[0];
         assert.match(deliveredEvent.address.city, /spring branch/i);
         assert.strictEqual(deliveredEvent.address.state, 'TX');
         assert.strictEqual(deliveredEvent.address.zip, '78070');
