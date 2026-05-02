@@ -144,6 +144,56 @@ test('DHL', async (t) => {
             assert.equal(undefined, actual);
         });
 
+        t.test('should set shippedAt for "PROCESSED THROUGH USPS SORT FACILITY" events from UTAPI', async () => {
+            nock('https://api-eu.dhl.com')
+                .get('/track/shipments')
+                .query({ trackingNumber: validTrackingNumbers[0] })
+                .reply(200, {
+                    shipments: [{
+                        id: '698E011D2920F49AA1243104',
+                        service: 'ecommerce',
+                        origin: {
+                            address: {
+                                addressLocality: 'CARROLLTON',
+                                countryCode: 'US',
+                                postalCode: '75010'
+                            }
+                        },
+                        status: {
+                            timestamp: '2026-04-28T04:00:00',
+                            statusCode: 'transit',
+                            description: 'PROCESSED THROUGH USPS SORT FACILITY'
+                        },
+                        events: [
+                            {
+                                timestamp: '2026-04-28T04:00:00',
+                                description: 'PROCESSED THROUGH USPS SORT FACILITY',
+                                location: {
+                                    address: {
+                                        addressLocality: 'FOREST PARK',
+                                        countryCode: 'US',
+                                        postalCode: '60130'
+                                    }
+                                }
+                            }
+                        ]
+                    }]
+                });
+
+            const bloodhound = new Bloodhound({
+                dhl: {
+                    apiKey: 'fake-api-key'
+                }
+            });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track(validTrackingNumbers[0], 'dhl', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert.equal('DHL', actual.carrier);
+            assert.ok(actual.shippedAt, 'shippedAt should be set when an event description starts with "PROCESSED THROUGH USPS SORT FACILITY"');
+        });
+
         t.test('should return estimated delivery date for a real DHL tracking number', async () => {
             nock('https://api-eu.dhl.com')
                 .get('/track/shipments')
