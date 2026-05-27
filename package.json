@@ -1,6 +1,6 @@
 {
     "dependencies": {
-        "@stores.com/http-error": "~1.0.0",
+        "@stores.com/http-error": "~1.2.0",
         "@stores.com/ups": "~1.1.0",
         "@stores.com/usps": "~0.2.2",
         "@stores.com/xpo": "~0.2.2",
