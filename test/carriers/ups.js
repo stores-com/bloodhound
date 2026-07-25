@@ -52,8 +52,8 @@ test('UPS', async (t) => {
         });
     });
 
-    t.test('ups.track', async (t) => {
-        t.test('should return tracking data', async () => {
+    await t.test('ups.track', async (t) => {
+        await t.test('should return tracking data', async () => {
             nock('https://wwwcie.ups.com')
                 .post('/security/v1/oauth/token')
                 .reply(200, {
@@ -122,6 +122,101 @@ test('UPS', async (t) => {
             assert.strictEqual(actual.shippedAt.toISOString(), '2025-12-10T02:08:47.000Z');
             assert.strictEqual(actual.url, 'https://www.ups.com/track?tracknum=1Z5338FF0107231059');
             assert.strictEqual(actual.events.length, 4);
+        });
+
+        await t.test('should correctly convert non-UTC gmtOffset events to UTC', async () => {
+            // Regression test for two bugs in the UPS activity mapping:
+            //
+            // Bug 1 — Timestamps: gmtDate+gmtTime are already UTC values. Appending gmtOffset
+            // caused JavaScript to treat the UTC time as a local time and shift it again by the
+            // offset, producing timestamps offset-hours too late. For example:
+            //   gmtDate: "20260717", gmtTime: "20:16:53", gmtOffset: "-07:00"
+            //   Bug:  new Date("2026-07-17T20:16:53-07:00") → 2026-07-18T03:16:53Z  (7h too late)
+            //   Fix:  new Date("2026-07-17T20:16:53Z")      → 2026-07-17T20:16:53Z  (correct)
+            //
+            // Bug 2 — State field: the UPS API returns state in `stateProvince`, not `state`.
+            // Reading `address?.state` always produced undefined.
+            nock('https://wwwcie.ups.com')
+                .post('/security/v1/oauth/token')
+                .reply(200, {
+                    access_token: 'mock-token',
+                    expires_in: 3600,
+                    token_type: 'Bearer'
+                });
+
+            nock('https://wwwcie.ups.com')
+                .get('/api/track/v1/details/1Z6V86420323794365')
+                .query(true)
+                .reply(200, {
+                    trackResponse: {
+                        shipment: [{
+                            inquiryNumber: '1Z6V86420323794365',
+                            package: [{
+                                trackingNumber: '1Z6V86420323794365',
+                                activity: [
+                                    {
+                                        // Las Vegas, NV — PDT (UTC-7)
+                                        // Local time: 2026-07-17 13:16:53 PDT
+                                        // gmtDate+gmtTime are already UTC: 2026-07-17T20:16:53Z
+                                        gmtDate: '20260717',
+                                        gmtTime: '20:16:53',
+                                        gmtOffset: '-07:00',
+                                        location: { address: { city: 'LAS VEGAS', countryCode: 'US', stateProvince: 'NV' } },
+                                        status: { description: 'DELIVERED', type: 'D' }
+                                    },
+                                    {
+                                        // Hodgkins, IL — CDT (UTC-5)
+                                        // Local time: 2026-07-15 15:10:00 CDT
+                                        // gmtDate+gmtTime are already UTC: 2026-07-15T20:10:00Z
+                                        gmtDate: '20260715',
+                                        gmtTime: '20:10:00',
+                                        gmtOffset: '-05:00',
+                                        location: { address: { city: 'Hodgkins', countryCode: 'US', stateProvince: 'IL' } },
+                                        status: { description: 'Departed from Facility', type: 'I' }
+                                    },
+                                    {
+                                        // New Stanton, PA — EDT (UTC-4)
+                                        // Local time: 2026-07-14 23:52:47 EDT
+                                        // gmtDate+gmtTime are already UTC: 2026-07-15T03:52:47Z
+                                        gmtDate: '20260715',
+                                        gmtTime: '03:52:47',
+                                        gmtOffset: '-04:00',
+                                        location: { address: { city: 'New Stanton', countryCode: 'US', stateProvince: 'PA' } },
+                                        status: { description: 'Arrived at Facility', type: 'I' }
+                                    }
+                                ]
+                            }]
+                        }]
+                    }
+                });
+
+            const bloodhound = new Bloodhound({
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
+            });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('1Z6V86420323794365', 'ups', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert.strictEqual(actual.carrier, 'UPS');
+            assert.strictEqual(actual.events.length, 3);
+
+            // Delivered — Las Vegas PDT (-07:00): gmtTime 20:16:53Z must not be shifted
+            assert.strictEqual(actual.events[0].date.toISOString(), '2026-07-17T20:16:53.000Z');
+            assert.strictEqual(actual.events[0].address.state, 'NV');
+            assert.strictEqual(actual.deliveredAt.toISOString(), '2026-07-17T20:16:53.000Z');
+
+            // Departed — Hodgkins CDT (-05:00): gmtTime 20:10:00Z must not be shifted
+            assert.strictEqual(actual.events[1].date.toISOString(), '2026-07-15T20:10:00.000Z');
+            assert.strictEqual(actual.events[1].address.state, 'IL');
+
+            // Arrived — New Stanton EDT (-04:00): gmtTime 03:52:47Z must not be shifted
+            assert.strictEqual(actual.events[2].date.toISOString(), '2026-07-15T03:52:47.000Z');
+            assert.strictEqual(actual.events[2].address.state, 'PA');
+            assert.strictEqual(actual.shippedAt.toISOString(), '2026-07-15T03:52:47.000Z');
         });
     });
 });
