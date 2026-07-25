@@ -76,21 +76,21 @@ test('UPS', async (t) => {
                                         gmtDate: '20251211',
                                         gmtTime: '15:41:00',
                                         gmtOffset: '+00:00',
-                                        location: { address: { city: 'Hodgkins', countryCode: 'US', state: 'IL' } },
+                                        location: { address: { city: 'Hodgkins', countryCode: 'US', stateProvince: 'IL' } },
                                         status: { description: 'Arrived at Facility', type: 'I' }
                                     },
                                     {
                                         gmtDate: '20251210',
                                         gmtTime: '05:59:00',
                                         gmtOffset: '+00:00',
-                                        location: { address: { city: 'Maumee', countryCode: 'US', state: 'OH' } },
+                                        location: { address: { city: 'Maumee', countryCode: 'US', stateProvince: 'OH' } },
                                         status: { description: 'Departed from Facility', type: 'I' }
                                     },
                                     {
                                         gmtDate: '20251210',
                                         gmtTime: '02:08:47',
                                         gmtOffset: '+00:00',
-                                        location: { address: { city: 'Maumee', countryCode: 'US', state: 'OH' } },
+                                        location: { address: { city: 'Maumee', countryCode: 'US', stateProvince: 'OH' } },
                                         status: { description: 'Arrived at Facility', type: 'I' }
                                     },
                                     {
