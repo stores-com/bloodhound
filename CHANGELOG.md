@@ -12,11 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** DHL and USPS event timestamps are now interpreted in `defaultTimezone` (falling back to the host machine's timezone) instead of the timezone geocoded from the event's location. A scan in a different timezone than `defaultTimezone` will be off by the difference between them, which can move a date across midnight. Set `defaultTimezone` explicitly
 - **BREAKING:** DHL `events[].address.city` now comes from the UTAPI's `addressLocality` rather than the geocoder, and `events[].address.state` is `undefined` — the UTAPI has no state field, so it was previously only available via geocoding
 - **BREAKING:** USPS `events[].address.city` and `.state` are no longer corrected by the geocoder, so they are returned exactly as USPS supplies them
+- Updated dhl-ecommerce-solutions to ~0.5.0 (async/await, native fetch, `@stores.com/http-error`)
 
 ### Removed
 - **BREAKING:** removed geocoding. `util/geography.js` is gone, along with the `geocoder` and `pettyCache` options and the `node-geocoder`, `petty-cache`, `tz-lookup` and `us-states-normalize` dependencies. `GOOGLE_API_KEY` is no longer read
 
 ### Fixed
+- DHL eCommerce Solutions: detect a not-found tracking number by response status rather than by error message. 0.5.0 raises `@stores.com/http-error` — whose message is `"404 Not Found"` rather than `"Not Found"`, and is replaced entirely by the carrier's own text when the response body carries an `errors[]` array — so the previous exact-match check would have stopped recognizing a 404 and turned it into a hard error instead of falling through to the DHL UTAPI
 - OnTrac: `shippedAt` is no longer set from an `EXRL` scan. OnTrac reports `EXRL` as "Not Yet Received" with no location, meaning the label exists but the carrier does not have the package yet, so `shippedAt` now comes from the first `ORIG` scan. Affected packages will report a later `shippedAt` than before
 - UPS: `gmtDate`/`gmtTime` are already UTC, so appending `gmtOffset` shifted every event timestamp a second time. Event dates, `shippedAt` and `deliveredAt` for non-UTC facilities were offset-hours too late
 - UPS: read `stateProvince` rather than `state` for `address.state`, which was always `undefined`
