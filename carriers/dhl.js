@@ -1,6 +1,6 @@
 const async = require('async');
+const HttpError = require('@stores.com/http-error');
 const moment = require('moment-timezone');
-const request = require('request');
 
 const DhlEcommerceSolutions = require('./dhlEcommerceSolutions');
 
@@ -44,30 +44,23 @@ function DHL(options) {
 
         const trackWithUTAPI = (_options) => {
             // This is the API being used from: https://developer.dhl.com/api-reference/shipment-tracking
-            const req = {
-                forever: true,
-                gzip: true,
-                headers: {
-                    'DHL-API-Key': options.apiKey
-                },
-                json: true,
-                method: 'GET',
-                timeout: 5000,
-                url: `https://api-eu.dhl.com/track/shipments?trackingNumber=${trackingNumber}`
-            };
-
-            async.retry((callback) => {
-                request(req, (err, res, body) => {
-                    if (err) {
-                        return callback(err);
-                    }
-
-                    if (res.statusCode !== 200) {
-                        return callback(new Error(`${res.statusCode} ${res.request.method} ${res.request.href} ${body || ''}`.trim()));
-                    }
-
-                    callback(null, body);
+            async.retry(async () => {
+                const response = await fetch(`https://api-eu.dhl.com/track/shipments?trackingNumber=${trackingNumber}`, {
+                    headers: {
+                        'Accept-Encoding': 'gzip, deflate',
+                        'DHL-API-Key': options.apiKey
+                    },
+                    signal: AbortSignal.timeout(5000)
                 });
+
+                // Anything other than a 200 is treated as a failure and retried, which is
+                // what the previous `request` implementation did — deliberately narrower
+                // than response.ok.
+                if (response.status !== 200) {
+                    throw await HttpError.from(response);
+                }
+
+                return await response.json();
             }, (err, body) => {
                 if (err) {
                     return callback(err);
