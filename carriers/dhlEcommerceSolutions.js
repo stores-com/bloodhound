@@ -111,7 +111,15 @@ function DhlEcommerceSolutions(options) {
             };
 
             if (err) {
-                if (err.message === 'Not Found') {
+                // A tracking number DHL doesn't know yet isn't an error — return empty
+                // results so carriers/dhl.js can fall through to the UTAPI.
+                //
+                // Checked against the response status rather than the message.
+                // dhl-ecommerce-solutions 0.5.0 raises @stores.com/http-error, whose
+                // message is normally "404 Not Found" but gets replaced by the carrier's
+                // own text whenever the body carries an `errors[]` array. The status on
+                // `cause` is the one part that can't be overwritten.
+                if (err.cause?.status === 404) {
                     return callback(null, results);
                 }
 
