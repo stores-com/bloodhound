@@ -46,9 +46,22 @@ module.exports = function(options) {
                     address: {
                         city: activity.location?.address?.city,
                         country: activity.location?.address?.countryCode,
-                        state: activity.location?.address?.state
+                        // The UPS API returns the state abbreviation in the `stateProvince` field,
+                        // not `state`. Mapping to `state` here for consistency with other carriers.
+                        state: activity.location?.address?.stateProvince
                     },
-                    date: new Date(`${activity.gmtDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}T${activity.gmtTime}${activity.gmtOffset}`),
+                    // The UPS API returns `gmtDate` and `gmtTime` as UTC values, along with a
+                    // separate `gmtOffset` field representing the facility's local timezone offset.
+                    // `gmtDate` and `gmtTime` are already UTC — appending `Z` produces the correct
+                    // UTC timestamp. Previously `gmtOffset` was appended instead, which caused
+                    // JavaScript to interpret the already-UTC time as a local time and shift it
+                    // again by the offset, producing timestamps that were offset-hours too late.
+                    //
+                    // Example — Las Vegas delivery (PDT, -07:00):
+                    //   gmtDate: "20260717", gmtTime: "20:16:53", gmtOffset: "-07:00"
+                    //   Incorrect: new Date("2026-07-17T20:16:53-07:00") → 2026-07-18T03:16:53Z (7h too late)
+                    //   Correct:   new Date("2026-07-17T20:16:53Z")      → 2026-07-17T20:16:53Z
+                    date: new Date(`${activity.gmtDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}T${activity.gmtTime}Z`),
                     description: activity.status?.description?.trim()
                 };
 
