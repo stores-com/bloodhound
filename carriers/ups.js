@@ -42,6 +42,16 @@ module.exports = function(options) {
             };
 
             trackingData?.trackResponse?.shipment?.[0]?.package?.[0]?.activity?.forEach(activity => {
+                // UPS sometimes returns an activity without a complete timestamp. Reading .replace() off a missing
+                // gmtDate threw a TypeError that failed the entire tracking request, and a missing gmtTime
+                // interpolated the string "undefined" into an Invalid Date that then flowed into deliveredAt and
+                // shippedAt. Parse first and skip only the activity we can't place in time.
+                const date = new Date(`${activity.gmtDate?.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}T${activity.gmtTime}Z`);
+
+                if (isNaN(date.getTime())) {
+                    return;
+                }
+
                 const event = {
                     address: {
                         city: activity.location?.address?.city,
@@ -61,7 +71,7 @@ module.exports = function(options) {
                     //   gmtDate: "20260717", gmtTime: "20:16:53", gmtOffset: "-07:00"
                     //   Incorrect: new Date("2026-07-17T20:16:53-07:00") → 2026-07-18T03:16:53Z (7h too late)
                     //   Correct:   new Date("2026-07-17T20:16:53Z")      → 2026-07-17T20:16:53Z
-                    date: new Date(`${activity.gmtDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}T${activity.gmtTime}Z`),
+                    date,
                     description: activity.status?.description?.trim()
                 };
 
