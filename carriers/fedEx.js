@@ -1,7 +1,6 @@
 const async = require('async');
 const cache = require('memory-cache');
-const createError = require('http-errors');
-const request = require('request');
+const HttpError = require('@stores.com/http-error');
 
 const checkDigit = require('../util/checkDigit');
 
@@ -30,34 +29,29 @@ function FedEx(args) {
             return callback(null, accessToken);
         }
 
-        const req = {
-            form: {
-                grant_type: 'client_credentials',
-                client_id: args.api_key,
-                client_secret: args.secret_key
-            },
-            method: 'POST',
-            url: `${options.url}/oauth/token`
-        };
+        (async () => {
+            // URLSearchParams as the body reproduces request's `form` option, including
+            // the application/x-www-form-urlencoded content type.
+            const response = await fetch(`${options.url}/oauth/token`, {
+                body: new URLSearchParams({
+                    client_id: args.api_key,
+                    client_secret: args.secret_key,
+                    grant_type: 'client_credentials'
+                }),
+                method: 'POST',
+                signal: AbortSignal.timeout(30000)
+            });
 
-        request(req, (err, response, body) => {
-            if (err) {
-                return callback(err);
+            if (response.status !== 200) {
+                throw await HttpError.from(response);
             }
 
-            if (response.statusCode !== 200) {
-                const err = createError(response.statusCode);
-                err.response = response;
-
-                return callback(err);
-            }
-
-            const accessToken = JSON.parse(body);
-
+            return await response.json();
+        })().then(accessToken => {
             cache.put(key, accessToken, (accessToken.expires_in - 100) * 1000);
 
-            return callback(null, accessToken);
-        });
+            callback(null, accessToken);
+        }, callback);
     };
 
     this.isTrackingNumberValid = (trackingNumber) => {
@@ -127,47 +121,54 @@ function FedEx(args) {
                 return callback(err);
             }
 
-            const trackRequestOptions = {
-                gzip: true,
-                headers: {
-                    Authorization: `Bearer ${accessToken.access_token}`
-                },
-                json: {
-                    includeDetailedScans: true,
-                    trackingInfo: [
-                        {
-                            trackingNumberInfo: {
-                                trackingNumber: trackingNumber
+            async.retry(async () => {
+                const response = await fetch(`${options.url}/track/v1/trackingnumbers`, {
+                    body: JSON.stringify({
+                        includeDetailedScans: true,
+                        trackingInfo: [
+                            {
+                                trackingNumberInfo: {
+                                    trackingNumber: trackingNumber
+                                }
                             }
-                        }
-                    ]
-                },
-                method: 'POST',
-                url: `${options.url}/track/v1/trackingnumbers`
-            };
-
-            async.retry((callback) => {
-                request(trackRequestOptions, (err, response, trackResponse) => {
-                    if (err) {
-                        return callback(err);
-                    }
-
-                    if (trackResponse?.output?.alerts?.length) {
-                        let alerts = trackResponse.output.alerts;
-                        let warnings = alerts.filter(alert => alert.alertType === 'WARNING');
-
-                        if (warnings.length) {
-                            return callback(new Error(warnings.map(warning => `${warning.code}: ${warning.message}`).join(', ')));
-                        }
-                    }
-
-                    // Return if only one track detail is returned
-                    if (trackResponse?.output?.completeTrackResults?.trackResults?.scanEvents?.length === 1) {
-                        return callback(null, trackResponse);
-                    }
-
-                    callback(null, trackResponse);
+                        ]
+                    }),
+                    headers: {
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Authorization': `Bearer ${accessToken.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    signal: AbortSignal.timeout(30000)
                 });
+
+                const text = await response.text();
+                let trackResponse;
+
+                try {
+                    trackResponse = JSON.parse(text);
+                } catch {
+                    // request() handed a non-JSON error page back as a raw string, which
+                    // then fell through as a success with no events. Surface it instead.
+                    throw await HttpError.from(response);
+                }
+
+                // FedEx reports per-shipment problems in output.alerts on an otherwise
+                // successful response, and those messages say more than the status line,
+                // so they're checked before the status.
+                if (trackResponse?.output?.alerts?.length) {
+                    const warnings = trackResponse.output.alerts.filter(alert => alert.alertType === 'WARNING');
+
+                    if (warnings.length) {
+                        throw new Error(warnings.map(warning => `${warning.code}: ${warning.message}`).join(', '));
+                    }
+                }
+
+                if (!response.ok) {
+                    throw await HttpError.from(response, trackResponse);
+                }
+
+                return trackResponse;
             }, (err, trackReply) => {
                 if (err) {
                     return callback(err);

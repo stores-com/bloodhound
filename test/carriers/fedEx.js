@@ -2253,4 +2253,124 @@ test('FedEx', async (t) => {
             });
         });
     });
+
+    // The tests above either need live FedEx credentials or only assert on the parsed
+    // tracking payload, which leaves how we build the two requests unverified. Mutation
+    // testing showed that sending the token request as JSON instead of form data,
+    // dropping the Authorization header, ignoring a non-200 token response, or
+    // swallowing FedEx's WARNING alerts all left them green.
+    //
+    // These mock fetch directly so the request itself can be asserted, and use a
+    // distinct api_key each time because getAccessToken caches the token by api_key.
+    await t.test('fedEx request handling', async (t) => {
+        const trackingPayload = {
+            output: {
+                completeTrackResults: [{
+                    trackResults: [{
+                        scanEvents: []
+                    }]
+                }]
+            }
+        };
+
+        await t.test('should send the token request as form-encoded credentials', async () => {
+            const fedEx = new FedEx({ api_key: 'form-encoded-key', secret_key: 'test-secret' });
+
+            const fetchMock = t.mock.method(globalThis, 'fetch', (url) => {
+                const body = url.endsWith('/oauth/token') ? { access_token: 'test-token', expires_in: 3600 } : trackingPayload;
+
+                return Promise.resolve(new Response(JSON.stringify(body), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            await new Promise((resolve, reject) => {
+                fedEx.track('449044304137821', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert.strictEqual(fetchMock.mock.calls[0].arguments[0], 'https://apis.fedex.com/oauth/token');
+
+            // request()'s `form` option sent x-www-form-urlencoded. URLSearchParams is
+            // what reproduces that; JSON.stringify would not.
+            const tokenBody = fetchMock.mock.calls[0].arguments[1].body;
+
+            assert(tokenBody instanceof URLSearchParams);
+            assert.strictEqual(tokenBody.get('client_id'), 'form-encoded-key');
+            assert.strictEqual(tokenBody.get('client_secret'), 'test-secret');
+            assert.strictEqual(tokenBody.get('grant_type'), 'client_credentials');
+        });
+
+        await t.test('should send the access token as a bearer header on the tracking request', async () => {
+            const fedEx = new FedEx({ api_key: 'bearer-header-key', secret_key: 'test-secret' });
+
+            const fetchMock = t.mock.method(globalThis, 'fetch', (url) => {
+                const body = url.endsWith('/oauth/token') ? { access_token: 'a-real-looking-token', expires_in: 3600 } : trackingPayload;
+
+                return Promise.resolve(new Response(JSON.stringify(body), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            await new Promise((resolve, reject) => {
+                fedEx.track('449044304137821', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert.strictEqual(fetchMock.mock.calls[1].arguments[0], 'https://apis.fedex.com/track/v1/trackingnumbers');
+            assert.strictEqual(fetchMock.mock.calls[1].arguments[1].headers.Authorization, 'Bearer a-real-looking-token');
+        });
+
+        await t.test('should return an error when the token request fails', async () => {
+            const fedEx = new FedEx({ api_key: 'token-failure-key', secret_key: 'test-secret' });
+
+            t.mock.method(globalThis, 'fetch', () => {
+                return Promise.resolve(new Response(JSON.stringify({ errors: [{ message: 'Invalid client' }] }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 401
+                }));
+            });
+
+            const args = await new Promise((resolve) => {
+                fedEx.track('449044304137821', (...args) => resolve(args));
+            });
+
+            assert.strictEqual(args[0].cause.status, 401);
+            assert.strictEqual(args[1], undefined);
+        });
+
+        await t.test('should surface FedEx WARNING alerts as an error', async () => {
+            const fedEx = new FedEx({ api_key: 'warning-alerts-key', secret_key: 'test-secret' });
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                // FedEx reports this kind of problem on a 200.
+                return Promise.resolve(new Response(JSON.stringify({
+                    output: {
+                        alerts: [{
+                            alertType: 'WARNING',
+                            code: 'TRACKING.TRACKINGNUMBER.NOTFOUND',
+                            message: 'Tracking number cannot be found'
+                        }]
+                    }
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const args = await new Promise((resolve) => {
+                fedEx.track('449044304137821', (...args) => resolve(args));
+            });
+
+            assert.strictEqual(args[0].message, 'TRACKING.TRACKINGNUMBER.NOTFOUND: Tracking number cannot be found');
+            assert.strictEqual(args[1], undefined);
+        });
+    });
 });
