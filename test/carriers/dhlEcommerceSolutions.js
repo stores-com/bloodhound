@@ -53,8 +53,10 @@ test('DHL eCommerce Solutions', async (t) => {
                 bloodhound.track(validTrackingNumbers[0], 'dhl', (...args) => resolve(args));
             });
 
-            // No packages with length to track, so this is falling through to UTAPI
-            assert.equal(err.message.includes('401 GET https://api-eu.dhl.com/track/shipments'), true);
+            // No packages with length to track, so this is falling through to UTAPI.
+            // Asserted on the status rather than the message, which is now
+            // @stores.com/http-error's "401 Unauthorized".
+            assert.strictEqual(err.cause.status, 401);
             assert.equal(undefined, actual);
         });
     });
