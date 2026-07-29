@@ -218,5 +218,69 @@ test('UPS', async (t) => {
             assert.strictEqual(actual.events[2].address.state, 'PA');
             assert.strictEqual(actual.shippedAt.toISOString(), '2026-07-15T03:52:47.000Z');
         });
+
+        await t.test('should skip activities with an incomplete timestamp', async () => {
+            nock('https://wwwcie.ups.com')
+                .post('/security/v1/oauth/token')
+                .reply(200, {
+                    access_token: 'mock-token',
+                    expires_in: 3600,
+                    token_type: 'Bearer'
+                });
+
+            nock('https://wwwcie.ups.com')
+                .get('/api/track/v1/details/1Z6V86420323794365')
+                .query(true)
+                .reply(200, {
+                    trackResponse: {
+                        shipment: [{
+                            inquiryNumber: '1Z6V86420323794365',
+                            package: [{
+                                trackingNumber: '1Z6V86420323794365',
+                                activity: [
+                                    {
+                                        gmtDate: '20260717',
+                                        gmtOffset: '-07:00',
+                                        location: { address: { city: 'Las Vegas', countryCode: 'US', stateProvince: 'NV' } },
+                                        status: { description: 'Missing gmtTime', type: 'D' }
+                                    },
+                                    {
+                                        gmtOffset: '-05:00',
+                                        gmtTime: '20:10:00',
+                                        location: { address: { city: 'Hodgkins', countryCode: 'US', stateProvince: 'IL' } },
+                                        status: { description: 'Missing gmtDate', type: 'D' }
+                                    },
+                                    {
+                                        gmtDate: '20260715',
+                                        gmtOffset: '-04:00',
+                                        gmtTime: '03:52:47',
+                                        location: { address: { city: 'New Stanton', countryCode: 'US', stateProvince: 'PA' } },
+                                        status: { description: 'Arrived at Facility', type: 'I' }
+                                    }
+                                ]
+                            }]
+                        }]
+                    }
+                });
+
+            const bloodhound = new Bloodhound({
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
+            });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('1Z6V86420323794365', 'ups', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            // Only the complete activity survives. Without the guard the missing gmtDate threw a TypeError that
+            // failed the whole request, and the missing gmtTime set deliveredAt to an Invalid Date.
+            assert.strictEqual(actual.events.length, 1);
+            assert.strictEqual(actual.events[0].date.toISOString(), '2026-07-15T03:52:47.000Z');
+            assert.strictEqual(actual.events[0].address.state, 'PA');
+            assert.strictEqual(actual.deliveredAt, undefined);
+            assert.strictEqual(actual.shippedAt.toISOString(), '2026-07-15T03:52:47.000Z');
+        });
     });
 });
