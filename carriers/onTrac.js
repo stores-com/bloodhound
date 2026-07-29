@@ -4,8 +4,14 @@ const HttpError = require('@stores.com/http-error');
 // These event codes indicate the shipment was delivered
 const DELIVERED_EVENT_CODES = ['DLVD'];
 
-// These event codes indicate the shipment is in the carrier's network
-const SHIPPED_EVENT_CODES = ['ARRD', 'EXRL', 'LOAD', 'OFDL', 'ORIG', 'SFCT'];
+// These event codes indicate the shipment is in the carrier's network.
+//
+// EXRL and INRL are deliberately absent. Both report "On its way to OnTrac" with a
+// status of "Not Yet Received" and no location, and both carry the description "The
+// package data was sent to OnTrac, but we have yet to receive the package from the
+// sender." They mean the label exists, not that the carrier has the package, so the
+// first in-network scan is ORIG.
+const SHIPPED_EVENT_CODES = ['ARRD', 'LOAD', 'OFDL', 'ORIG', 'SFCT'];
 
 function OnTrac() {
     this.isTrackingNumberValid = (trackingNumber) => {
@@ -13,7 +19,7 @@ function OnTrac() {
         trackingNumber = trackingNumber.replace(/\s/g, '');
         trackingNumber = trackingNumber.toUpperCase();
 
-        // 1LS prefix: 1LS + 12 alphanumeric characters (e.g., 1LSDBHP000OGR45)
+        // 1LS prefix: 1LS + 12 alphanumeric characters (e.g., 1LSTEST00000001)
         if (/^1LS[A-Z0-9]{12}$/.test(trackingNumber)) {
             return true;
         }
@@ -25,6 +31,11 @@ function OnTrac() {
 
         // LX/LA/LI/LH/LE/LN prefix: L + [AIEHNX] + [1-3] + 7 digits (e.g., LX17635036)
         if (/^L[AIEHNX][1-3]\d{7}$/.test(trackingNumber)) {
+            return true;
+        }
+
+        // D prefix: D + 14 digits (e.g., D10000000000001)
+        if (/^D\d{14}$/.test(trackingNumber)) {
             return true;
         }
 

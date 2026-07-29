@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- OnTrac: recognize the `D` + 14 digits tracking number format (e.g. `D10000000000001`) in `isTrackingNumberValid()`, so `guessCarrier()` resolves it to OnTrac
+
+### Fixed
+- OnTrac: `shippedAt` is no longer set from an `EXRL` scan. OnTrac reports `EXRL` as "Not Yet Received" with no location, meaning the label exists but the carrier does not have the package yet, so `shippedAt` now comes from the first `ORIG` scan. Affected packages will report a later `shippedAt` than before
+- UPS: `gmtDate`/`gmtTime` are already UTC, so appending `gmtOffset` shifted every event timestamp a second time. Event dates, `shippedAt` and `deliveredAt` for non-UTC facilities were offset-hours too late
+- UPS: read `stateProvince` rather than `state` for `address.state`, which was always `undefined`
+
 ## [3.5.3] - 2026-05-02
 ### Fixed
 - DHL UTAPI: recognize `"PROCESSED THROUGH USPS SORT FACILITY"` as a shipped status so `shippedAt` is populated for DHL eCommerce packages already in the USPS network
