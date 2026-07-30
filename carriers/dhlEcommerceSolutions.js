@@ -90,7 +90,7 @@ function DhlEcommerceSolutions(options) {
         return false;
     };
 
-    this.track = (trackingNumber, _options, callback) => {
+    this.track = async (trackingNumber, _options, callback) => {
         // Options are optional
         if (typeof _options === 'function') {
             callback = _options;
@@ -101,108 +101,107 @@ function DhlEcommerceSolutions(options) {
             _options.minDate = new Date(0);
         }
 
-        async.retry((callback) => {
-            dhlEcommerceClient.getTrackingByTrackingId(trackingNumber, callback);
-        }, (err, body) => {
-            const results = {
-                carrier: 'DHL',
-                events: [],
-                raw: body
-            };
+        let body;
 
-            if (err) {
-                // A tracking number DHL doesn't know yet isn't an error — return empty
-                // results so carriers/dhl.js can fall through to the UTAPI.
-                //
-                // Checked against the response status rather than the message.
-                // dhl-ecommerce-solutions 0.5.0 raises @stores.com/http-error, whose
-                // message is normally "404 Not Found" but gets replaced by the carrier's
-                // own text whenever the body carries an `errors[]` array. The status on
-                // `cause` is the one part that can't be overwritten.
-                if (err.cause?.status === 404) {
-                    return callback(null, results);
-                }
-
+        try {
+            body = await async.retry(async () => await dhlEcommerceClient.getTrackingByTrackingId(trackingNumber));
+        } catch (err) {
+            // A tracking number DHL doesn't know yet isn't an error — leave body undefined
+            // so the empty-results return below runs and carriers/dhl.js can fall through
+            // to the UTAPI.
+            //
+            // Checked against the response status rather than the message.
+            // dhl-ecommerce-solutions 0.5.0 raises @stores.com/http-error, whose
+            // message is normally "404 Not Found" but gets replaced by the carrier's
+            // own text whenever the body carries an `errors[]` array. The status on
+            // `cause` is the one part that can't be overwritten.
+            if (err.cause?.status !== 404) {
                 return callback(err);
             }
+        }
 
-            if (!body?.packages?.length) {
-                return callback(null, results);
-            }
+        const results = {
+            carrier: 'DHL',
+            events: [],
+            raw: body
+        };
 
-            // We only support the first package
-            const package = body.packages[0];
+        if (!body?.packages?.length) {
+            return callback(null, results);
+        }
 
-            // Reverse the array to get events in order Least Recent - Most Recent
-            const events = package.events.reverse();
+        // We only support the first package
+        const package = body.packages[0];
 
-            // Used when there is no address data present
-            let previousAddress = package.pickupDetail?.pickupAddress;
+        // Reverse the array to get events in order Least Recent - Most Recent
+        const events = package.events.reverse();
 
-            events.forEach(event => {
-                if (!event.location || !event.country || event.postalCode === '0') {
+        // Used when there is no address data present
+        let previousAddress = package.pickupDetail?.pickupAddress;
+
+        events.forEach(event => {
+            if (!event.location || !event.country || event.postalCode === '0') {
+                event.address = previousAddress;
+            } else {
+                const locationTokens = event.location.split(',').map(t => t.trim());
+
+                if (!locationTokens || locationTokens.length !== 3) {
                     event.address = previousAddress;
                 } else {
-                    const locationTokens = event.location.split(',').map(t => t.trim());
+                    event.address = {
+                        city: locationTokens[0],
+                        country: event.country,
+                        state: locationTokens[1],
+                        postalCode: event.postalCode
+                    };
 
-                    if (!locationTokens || locationTokens.length !== 3) {
-                        event.address = previousAddress;
-                    } else {
-                        event.address = {
-                            city: locationTokens[0],
-                            country: event.country,
-                            state: locationTokens[1],
-                            postalCode: event.postalCode
-                        };
-
-                        // Save the current address as the previousAddress
-                        previousAddress = event.address;
-                    }
-                };
-
-                const _event = {
-                    address: {
-                        city: event.address?.city,
-                        country: event.address?.country,
-                        state: event.address?.state,
-                        zip: event.address?.postalCode
-                    },
-                    date: moment.tz(`${event.date} ${event.time}`, 'YYYY-MM-DD HH:mm:ss', getTimezoneName(event.timeZone)).toDate(),
-                    description: event.primaryEventDescription
-                };
-
-                // Ensure event is after minDate (used to prevent data from reused tracking numbers)
-                if (_event.date < _options.minDate) {
-                    return;
+                    // Save the current address as the previousAddress
+                    previousAddress = event.address;
                 }
+            };
 
-                if (event.secondaryEventDescription) {
-                    _event.details = event.secondaryEventDescription;
-                }
+            const _event = {
+                address: {
+                    city: event.address?.city,
+                    country: event.address?.country,
+                    state: event.address?.state,
+                    zip: event.address?.postalCode
+                },
+                date: moment.tz(`${event.date} ${event.time}`, 'YYYY-MM-DD HH:mm:ss', getTimezoneName(event.timeZone)).toDate(),
+                description: event.primaryEventDescription
+            };
 
-                if (!results.deliveredAt && _event.description && DELIVERED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
-                    results.deliveredAt = _event.date;
-                }
-
-                if (!results.shippedAt && _event.description && SHIPPED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
-                    results.shippedAt = _event.date;
-                }
-
-                results.events.push(_event);
-            });
-
-            // Add url to carrier tracking page
-            results.url = `https://webtrack.dhlecs.com/orders?trackingNumber=${encodeURIComponent(trackingNumber)}`;
-
-            // Reverse results again to get events in order Most Recent - Least Recent
-            results.events.reverse();
-
-            if (!results.shippedAt && results.deliveredAt) {
-                results.shippedAt = results.deliveredAt;
+            // Ensure event is after minDate (used to prevent data from reused tracking numbers)
+            if (_event.date < _options.minDate) {
+                return;
             }
 
-            callback(null, results);
+            if (event.secondaryEventDescription) {
+                _event.details = event.secondaryEventDescription;
+            }
+
+            if (!results.deliveredAt && _event.description && DELIVERED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
+                results.deliveredAt = _event.date;
+            }
+
+            if (!results.shippedAt && _event.description && SHIPPED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
+                results.shippedAt = _event.date;
+            }
+
+            results.events.push(_event);
         });
+
+        // Add url to carrier tracking page
+        results.url = `https://webtrack.dhlecs.com/orders?trackingNumber=${encodeURIComponent(trackingNumber)}`;
+
+        // Reverse results again to get events in order Most Recent - Least Recent
+        results.events.reverse();
+
+        if (!results.shippedAt && results.deliveredAt) {
+            results.shippedAt = results.deliveredAt;
+        }
+
+        callback(null, results);
     };
 };
 
