@@ -32,6 +32,12 @@ function Bloodhound(options) {
         options.usps.defaultTimezone = defaultTimezone;
     }
 
+    // UPS gets the caller's value unresolved: Mail Innovations activities are the only UPS timestamps without an
+    // offset, and they assume UTC rather than the host machine's timezone when the caller sets no defaultTimezone
+    if (options.ups) {
+        options.ups.defaultTimezone = options.defaultTimezone;
+    }
+
     // Allow DHL to use DHL eCommerce Solutions
     if (options.dhlEcommerceSolutions) {
         options.dhl.dhlEcommerceSolutions = options.dhlEcommerceSolutions;
