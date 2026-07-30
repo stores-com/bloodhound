@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] - 2026-07-30
+### Fixed
+- XPO and Pitney Bowes: detect a not-found tracking number by response status rather than by error message — the same fix 4.0.0 made for DHL eCommerce Solutions. Both siblings raise `@stores.com/http-error`, whose message is `"<status> <statusText>"`, and the reason phrase is chosen by the origin rather than normalised by anything: a 404 arriving as `"404 NOT FOUND"` was turned into a hard error instead of an empty `events` array. `@stores.com/http-error` 1.2.0 also replaces that message outright with the response body's `errors[]` text, which would break the check a second way once those two packages move off `~1.0.0`. `err.cause.status` is unaffected by either
+
 ## [4.0.0] - 2026-07-30
 ### Added
 - OnTrac: recognize the `D` + 14 digits tracking number format (e.g. `D10000000000001`) in `isTrackingNumberValid()`, so `guessCarrier()` resolves it to OnTrac

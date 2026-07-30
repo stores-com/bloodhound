@@ -150,5 +150,55 @@ test('XPO', async (t) => {
                 assert(typeof event.description === 'string');
             });
         });
+
+        // Every other test in this file calls the live XPO API, which returns the one 404 that
+        // `err.message === '404 Not Found'` happens to match. This one is mocked because the
+        // case worth covering is the one the live API does not produce. HttpError's message is
+        // `${status} ${statusText}`, and the reason phrase is chosen by the origin and
+        // normalised by nobody — httpbin answers with "INTERNAL SERVER ERROR" in
+        // test/carriers/pitneyBowes.js, so an uppercase "404 NOT FOUND" is not hypothetical.
+        //
+        // The body also carries an errors[] array, which is inert today: @stores.com/xpo pins
+        // @stores.com/http-error ~1.0.0, which leaves the message alone. 1.2.0 — the version
+        // bloodhound itself uses — replaces the message with that errors[] text, so the check
+        // breaks a second way once xpo moves to it.
+        //
+        // The status on `cause` is unaffected by either.
+        await t.test('should return empty events for a 404 whose reason phrase is not "Not Found"', async (t) => {
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({
+                    errors: [{
+                        errorCode: 'NOT_FOUND',
+                        message: 'No shipment found for the reference number provided'
+                    }]
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 404,
+                    statusText: 'NOT FOUND'
+                }));
+            });
+
+            // A username the live tests do not use, so the mocked token cannot be served from
+            // or written to their memory-cache entry, which is keyed `xpo_${username}`
+            const mocked = new Bloodhound({
+                xpo: {
+                    api_key: 'test-api-key',
+                    password: 'test-password',
+                    username: 'test-username-mocked-404'
+                }
+            });
+
+            const actual = await mocked.track('000000007', 'xpo');
+
+            assert.strictEqual(actual.carrier, 'XPO');
+            assert.strictEqual(actual.events.length, 0);
+        });
     });
 });
