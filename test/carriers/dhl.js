@@ -192,6 +192,16 @@ test('DHL', async (t) => {
 
             assert.equal('DHL', actual.carrier);
             assert.ok(actual.shippedAt, 'shippedAt should be set when an event description starts with "PROCESSED THROUGH USPS SORT FACILITY"');
+
+            // Addresses come straight from the UTAPI response now that geocoding is gone:
+            // `city` is addressLocality and `zip` is postalCode. `state` is undefined
+            // because the UTAPI has no state field and it used to come from the geocoder.
+            assert.deepStrictEqual(actual.events[0].address, {
+                city: 'FOREST PARK',
+                country: 'US',
+                state: undefined,
+                zip: '60130'
+            });
         });
 
         t.test('should return estimated delivery date for a real DHL tracking number', async () => {

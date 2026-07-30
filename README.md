@@ -20,11 +20,9 @@ Each carrier activity/movement/scan is represented as an event with a descriptio
 
 **Timestamps**
 
-When it comes to timestamps there are two types of carrier APIs: those that include a UTC offset which can be easily parsed as proper dates, and those that provide timestamp strings that need to be interepreted based on the local timezone of the geographic location for the event.
+When it comes to timestamps there are two types of carrier APIs: those that include a UTC offset which can be easily parsed as proper dates, and those that provide timestamp strings with no offset at all.
 
-When Bloodhound encounters a timestamp without a UTC offset if looks up the timezone by geocoding the event's geographic location. The returned results contain proper dates in the correct timezone.
-
-Geocode results are cached in-memory locally. Geocode results can optionally be cached remotely in Redis.
+When Bloodhound encounters a timestamp without a UTC offset it interprets it in the `defaultTimezone` option, falling back to the local machine's timezone. Bloodhound does not geocode, so it cannot know the timezone of the event's own location: a scan in a different timezone than `defaultTimezone` will be off by the difference between them.
 
 **Carrier Guessing**
 
@@ -73,7 +71,7 @@ bloodhound.track('tracking number', { carrier: 'USPS' }, function(err, data) {
 
 Creates a new Bloodhound client. Each carrier requires a different combination of credentials (API keys, account numbers, passwords, user IDs, etc).
 
-By default, when Bloodhound encounters a timestamp without a UTC offset it will geocode using OpenStreetMap (which does not require an API key). You can optionally use a different geocoder. You can also optionally cache geocode results in Redis.
+When Bloodhound encounters a timestamp without a UTC offset it interprets it in the `defaultTimezone` option, falling back to the local machine's timezone.
 
 ```javascript
 const Bloodhound = require('@stores.com/bloodhound');
@@ -85,19 +83,6 @@ const bloodhound = new Bloodhound({
     fedEx: {
         api_key: 'abcdefghijklmnopqrstuvwxyz',
         secret_key: 'abcdefghijklmnopqrstuvwxyz'
-    },
-    geocoder: {
-        apiKey: 'GOOGLE_API_KEY',
-        language: 'en',
-        provider: 'google',
-        region: '.us'
-    },
-    pettyCache: {
-        host: '127.0.0.1',
-        options: {
-            auth_pass: 'secret'
-        },
-        port: 6379
     },
     ups: {
         client_id: 'YOUR_UPS_CLIENT_ID',
@@ -130,23 +115,15 @@ The GOFO Express carrier does not require any configuration. It works with GOFO 
 
 The DHL API requires an API key: https://developer.dhl.com.
 
-*geocoder**
-
-By default Bloodhound uses the OpenStreetMap geocode provider. You can optionally specify geocoder options which are passed to the [node-geocode](https://www.npmjs.com/package/node-geocoder) module.
-
 **defaultTimezone**
 
-When geocoding is unavailable (e.g. no Google API key), Bloodhound falls back to a default timezone for parsing event timestamps. You can specify this with the `defaultTimezone` option. If not provided, the local machine's timezone is used.
+Carriers that return timestamps without a UTC offset — currently DHL and USPS — have their event timestamps interpreted in this timezone. If not provided, the local machine's timezone is used, which means the same tracking number can produce different timestamps on different machines. Set it explicitly.
 
 ```javascript
 const bloodhound = new Bloodhound({
     defaultTimezone: 'America/Chicago'
 });
 ```
-
-**pettyCache**
-
-By default Bloodhound caches geocode results in-memory locally. You can optionally enable caching of geocoder results to a remote Redis server. These options are passed to the [petty-cache](https://www.npmjs.com/package/petty-cache) module.
 
 **ups**
 
