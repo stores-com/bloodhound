@@ -12,10 +12,13 @@ jobs:
       contents: write
       id-token: write
     steps:
+    # `--branch` matches the head branch NAME, not our main, so a pull request opened
+    # from a fork whose own default branch is called "main" lands in this list too.
+    # `--event push` restricts it to commits actually pushed to this repository.
     - name: Verify tests passed
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh run list --repo ${{ github.repository }} --workflow=test.yml --branch=main --limit=1 --json conclusion --jq '.[0].conclusion' | grep -q success
+      run: gh run list --repo ${{ github.repository }} --workflow=test.yml --branch=main --event push --limit=1 --json conclusion --jq '.[0].conclusion' | grep -q success
 
     - name: Checkout
       uses: actions/checkout@v7
