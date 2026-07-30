@@ -22,7 +22,7 @@ Each carrier activity/movement/scan is represented as an event with a descriptio
 
 When it comes to timestamps there are two types of carrier APIs: those that include a UTC offset which can be easily parsed as proper dates, and those that provide timestamp strings with no offset at all.
 
-When Bloodhound encounters a timestamp without a UTC offset it interprets it in the `defaultTimezone` option, falling back to the local machine's timezone. Bloodhound does not geocode, so it cannot know the timezone of the event's own location: a scan in a different timezone than `defaultTimezone` will be off by the difference between them.
+When Bloodhound encounters a timestamp without a UTC offset it interprets it in the `defaultTimezone` option, falling back to the local machine's timezone — except UPS, which falls back to UTC. Bloodhound does not geocode, so it cannot know the timezone of the event's own location: a scan in a different timezone than `defaultTimezone` will be off by the difference between them.
 
 **Carrier Guessing**
 
@@ -71,7 +71,7 @@ console.log(data);
 
 Creates a new Bloodhound client. Each carrier requires a different combination of credentials (API keys, account numbers, passwords, user IDs, etc).
 
-When Bloodhound encounters a timestamp without a UTC offset it interprets it in the `defaultTimezone` option, falling back to the local machine's timezone.
+When Bloodhound encounters a timestamp without a UTC offset it interprets it in the `defaultTimezone` option, falling back to the local machine's timezone — except UPS, which falls back to UTC.
 
 ```javascript
 const Bloodhound = require('@stores.com/bloodhound');
@@ -117,7 +117,9 @@ The DHL API requires an API key: https://developer.dhl.com.
 
 **defaultTimezone**
 
-Carriers that return timestamps without a UTC offset — currently DHL and USPS — have their event timestamps interpreted in this timezone. If not provided, the local machine's timezone is used, which means the same tracking number can produce different timestamps on different machines. Set it explicitly.
+Carriers that return timestamps without a UTC offset — currently DHL, Pitney Bowes, USPS, and UPS Mail Innovations — have their event timestamps interpreted in this timezone.
+
+If not provided, DHL, Pitney Bowes and USPS use the local machine's timezone, which means the same tracking number can produce different timestamps on different machines. Set it explicitly. UPS uses UTC instead, so a Mail Innovations scan is never interpreted in the timezone of whichever machine happens to be running.
 
 ```javascript
 const bloodhound = new Bloodhound({
