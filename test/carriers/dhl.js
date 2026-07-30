@@ -10,7 +10,7 @@ test('DHL', async (t) => {
         '420944019261299999877816190127'
     ];
 
-    t.test('dhl.isTrackingNumberValid', { concurrency: true }, async (t) => {
+    await t.test('dhl.isTrackingNumberValid', async (t) => {
         const dhl = new DHL();
 
         const invalidTrackingNumbers = [
@@ -19,7 +19,7 @@ test('DHL', async (t) => {
             '9400 1118 9922 3818 2184 07'
         ];
 
-        t.test('should detect valid DHL tracking numbers', () => {
+        await t.test('should detect valid DHL tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!dhl.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} is not recognized as a valid DHL tracking number`);
@@ -27,7 +27,7 @@ test('DHL', async (t) => {
             });
         });
 
-        t.test('should not detect invalid DHL tracking numbers', () => {
+        await t.test('should not detect invalid DHL tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (dhl.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid DHL tracking number`);
@@ -36,8 +36,8 @@ test('DHL', async (t) => {
         });
     });
 
-    t.test('dhl.track', { timeout: 10000 }, async (t) => {
-        t.test('should return a valid response with no errors', async () => {
+    await t.test('dhl.track', { timeout: 10000 }, async (t) => {
+        await t.test('should return a valid response with no errors', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 shipments: [{
                     id: '698E011D2920F49AA1243104',
@@ -74,7 +74,7 @@ test('DHL', async (t) => {
             assert.equal('DHL', actual.carrier);
         });
 
-        t.test('should fall through to DHL UTAPI and return a response with no errors when DHL eCommerce Solutions fails', async () => {
+        await t.test('should fall through to DHL UTAPI and return a response with no errors when DHL eCommerce Solutions fails', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 shipments: [{
                     id: '698E011D2920F49AA1243104',
@@ -116,7 +116,7 @@ test('DHL', async (t) => {
             assert.equal('DHL', actual.carrier);
         });
 
-        t.test('should try DHL eCommerce solutions first', async () => {
+        await t.test('should try DHL eCommerce solutions first', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({ status: 401, detail: 'Unauthorized' }), {
                 headers: { 'content-type': 'application/json' },
                 status: 401
@@ -142,7 +142,7 @@ test('DHL', async (t) => {
             assert.equal(undefined, actual);
         });
 
-        t.test('should set shippedAt for "PROCESSED THROUGH USPS SORT FACILITY" events from UTAPI', async () => {
+        await t.test('should set shippedAt for "PROCESSED THROUGH USPS SORT FACILITY" events from UTAPI', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 shipments: [{
                     id: '698E011D2920F49AA1243104',
@@ -202,7 +202,7 @@ test('DHL', async (t) => {
             });
         });
 
-        t.test('should return estimated delivery date for a real DHL tracking number', async () => {
+        await t.test('should return estimated delivery date for a real DHL tracking number', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 shipments: [{
                     id: '698E011D2920F49AA1243104',

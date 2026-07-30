@@ -6,7 +6,7 @@ const Bloodhound = require('../../index');
 const USPS = require('../../carriers/usps.js');
 
 test('USPS', { timeout: 10000 }, async (t) => {
-    t.test('usps.isTrackingNumberValid', { concurrency: true }, async (t) => {
+    await t.test('usps.isTrackingNumberValid', async (t) => {
         const usps = new USPS();
 
         const validTrackingNumbers = [
@@ -46,7 +46,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
             '4206810692612927005269000028978090'
         ];
 
-        t.test('should detect valid USPS tracking numbers', () => {
+        await t.test('should detect valid USPS tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!usps.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} is not recognized as a valid USPS tracking number`);
@@ -54,7 +54,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
             });
         });
 
-        t.test('should not detect invalid USPS tracking numbers', () => {
+        await t.test('should not detect invalid USPS tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (usps.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid USPS tracking number`);
@@ -63,8 +63,8 @@ test('USPS', { timeout: 10000 }, async (t) => {
         });
     });
 
-    t.test('Error Handling', { concurrency: true }, async (t) => {
-        t.test('should return an error for invalid credentials', async () => {
+    await t.test('Error Handling', async (t) => {
+        await t.test('should return an error for invalid credentials', async () => {
             const bloodhound = new Bloodhound({
                 usps: {
                     client_id: 'invalid',

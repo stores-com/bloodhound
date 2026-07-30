@@ -20,7 +20,7 @@ const TRACKING_RESPONSE = [{
 }];
 
 test('defaultTimezone', async (t) => {
-    t.test('should default to local machine timezone when not specified', () => {
+    await t.test('should default to local machine timezone when not specified', () => {
         const bloodhound = new Bloodhound();
         // Constructor should not throw when no defaultTimezone is provided
         assert.ok(bloodhound);

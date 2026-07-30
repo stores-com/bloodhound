@@ -8,7 +8,7 @@ const Amazon = require('../../carriers/amazon');
 test('Amazon', { timeout: 30000 }, async (t) => {
     const bloodhound = new Bloodhound();
 
-    t.test('amazon.isTrackingNumberValid', { concurrency: true }, async (t) => {
+    await t.test('amazon.isTrackingNumberValid', async (t) => {
         const amazon = new Amazon();
 
         const validTrackingNumbers = [
@@ -50,7 +50,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             'A123456789012'
         ];
 
-        t.test('should detect valid Amazon tracking numbers', () => {
+        await t.test('should detect valid Amazon tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!amazon.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should be recognized as a valid Amazon tracking number`);
@@ -58,7 +58,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             });
         });
 
-        t.test('should not detect invalid Amazon tracking numbers', () => {
+        await t.test('should not detect invalid Amazon tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (amazon.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid Amazon tracking number`);
@@ -67,8 +67,8 @@ test('Amazon', { timeout: 30000 }, async (t) => {
         });
     });
 
-    t.test('amazon.track', { concurrency: true }, async (t) => {
-        t.test('should return tracking information for a valid delivered package', { skip: true }, async () => {
+    await t.test('amazon.track', async (t) => {
+        await t.test('should return tracking information for a valid delivered package', { skip: true }, async () => {
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('TBA322242594054', 'amazon', (err, data) => err ? reject(err) : resolve(data));
             });
@@ -102,7 +102,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             });
         });
 
-        t.test('should handle tracking numbers with spaces', { skip: true }, async () => {
+        await t.test('should handle tracking numbers with spaces', { skip: true }, async () => {
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('TBA 3222 4259 4054', 'amazon', (err, data) => err ? reject(err) : resolve(data));
             });
@@ -111,7 +111,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             assert(actual.events.length > 0);
         });
 
-        t.test('should handle lowercase tracking numbers', { skip: true }, async () => {
+        await t.test('should handle lowercase tracking numbers', { skip: true }, async () => {
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('tba322242594054', 'amazon', (err, data) => err ? reject(err) : resolve(data));
             });
@@ -120,7 +120,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             assert(actual.events.length > 0);
         });
 
-        t.test('should return empty events for invalid tracking number', async () => {
+        await t.test('should return empty events for invalid tracking number', async () => {
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('TBA000000000000', 'amazon', (err, data) => err ? reject(err) : resolve(data));
             });
@@ -129,7 +129,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             assert.strictEqual(actual.events.length, 0);
         });
 
-        t.test('should include location information when available', async () => {
+        await t.test('should include location information when available', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 progressTracker: JSON.stringify({
                     summary: {
@@ -197,7 +197,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             });
         });
 
-        t.test('should return raw data in results', async () => {
+        await t.test('should return raw data in results', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 progressTracker: JSON.stringify({
                     summary: {
@@ -225,7 +225,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             }
         });
 
-        t.test('should sort events chronologically', async () => {
+        await t.test('should sort events chronologically', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 progressTracker: JSON.stringify({
                     summary: {
@@ -275,7 +275,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
             }
         });
 
-        t.test('should return estimatedDeliveryDate for a real Amazon tracking number', async () => {
+        await t.test('should return estimatedDeliveryDate for a real Amazon tracking number', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 progressTracker: JSON.stringify({
                     summary: {

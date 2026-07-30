@@ -225,7 +225,7 @@ const EXRL_TRACKING_RESPONSE = {
 test('OnTrac', { timeout: 30000 }, async (t) => {
     const bloodhound = new Bloodhound();
 
-    t.test('onTrac.isTrackingNumberValid', { concurrency: true }, async (t) => {
+    await t.test('onTrac.isTrackingNumberValid', async (t) => {
         const onTrac = new OnTrac();
 
         const validTrackingNumbers = [
@@ -284,7 +284,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
             'C12340000000001'
         ];
 
-        t.test('should detect valid OnTrac tracking numbers', () => {
+        await t.test('should detect valid OnTrac tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!onTrac.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should be recognized as a valid OnTrac tracking number`);
@@ -292,7 +292,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
             });
         });
 
-        t.test('should not detect invalid OnTrac tracking numbers', () => {
+        await t.test('should not detect invalid OnTrac tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (onTrac.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid OnTrac tracking number`);
