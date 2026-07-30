@@ -33,6 +33,20 @@ test('Error handling', { concurrency: true, timeout: 20000 }, async (t) => {
     t.test('Should not return an error when a carrier is not specified but carrier can be guessed', async () => {
         await bloodhound.track('449044304137821', { carrier: null });
     });
+
+    await t.test('Should throw when a callback is passed instead of options', () => {
+        assert.throws(() => bloodhound.track('449044304137821', () => {}), {
+            message: 'bloodhound.track() no longer accepts a callback. Await the returned promise instead.',
+            name: 'TypeError'
+        });
+    });
+
+    await t.test('Should throw when a callback is passed after options', () => {
+        assert.throws(() => bloodhound.track('449044304137821', 'fedex', () => {}), {
+            message: 'bloodhound.track() no longer accepts a callback. Await the returned promise instead.',
+            name: 'TypeError'
+        });
+    });
 });
 
 test('bloodhound.track', { concurrency: true }, async (t) => {

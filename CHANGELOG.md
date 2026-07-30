@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated dhl-ecommerce-solutions to ~0.5.0 (async/await, native fetch, `@stores.com/http-error`)
 
 ### Removed
-- **BREAKING:** `bloodhound.track()` no longer accepts a callback and always returns a promise. The signature is now `track(trackingNumber, [options])`. A callback passed as the third argument is ignored, so callers must `await` the returned promise (or attach `.then()`/`.catch()`) instead
+- **BREAKING:** `bloodhound.track()` no longer accepts a callback and always returns a promise. The signature is now `track(trackingNumber, [options])`. Passing a function in either the options or the callback position throws a `TypeError` rather than silently returning a promise the caller never awaits, so callers must `await` the returned promise (or attach `.then()`/`.catch()`) instead
 - **BREAKING:** removed geocoding. `util/geography.js` is gone, along with the `geocoder` and `pettyCache` options and the `node-geocoder`, `petty-cache`, `tz-lookup` and `us-states-normalize` dependencies. `GOOGLE_API_KEY` is no longer read
 
 ### Fixed

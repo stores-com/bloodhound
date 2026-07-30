@@ -69,7 +69,12 @@ function Bloodhound(options) {
         }
     };
 
-    this.track = (trackingNumber, options) => {
+    this.track = (trackingNumber, options, callback) => {
+        // 3.x accepted a callback. Throw instead of returning a promise the caller isn't awaiting.
+        if (typeof callback === 'function' || typeof options === 'function') {
+            throw new TypeError('bloodhound.track() no longer accepts a callback. Await the returned promise instead.');
+        }
+
         // Backwards compatibility
         if (typeof options === 'string') {
             options = {
