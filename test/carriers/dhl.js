@@ -137,6 +137,54 @@ test('DHL', async (t) => {
             });
         });
 
+        await t.test('should not retry a UTAPI 4xx', async () => {
+            const fetchMock = t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                detail: 'No shipment with given tracking number found.',
+                status: 404,
+                title: 'No result found'
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 404
+            })));
+
+            // No dhlEcommerceSolutions options, so this goes straight to the UTAPI and the
+            // fetch count is unambiguous.
+            const bloodhound = new Bloodhound({ dhl: { apiKey: 'test' } });
+
+            await assert.rejects(() => bloodhound.track(validTrackingNumbers[0], 'dhl'), (err) => {
+                assert.strictEqual(err.cause.status, 404);
+
+                return true;
+            });
+
+            // A 404 is a permanent answer for this tracking number. Retrying spends carrier
+            // calls on an outcome that cannot change, and those wasted calls are what earn
+            // DHL's 429.
+            assert.strictEqual(fetchMock.mock.callCount(), 1);
+        });
+
+        await t.test('should still retry a UTAPI 5xx', async () => {
+            const fetchMock = t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                detail: 'The server encountered an unexpected condition.',
+                status: 500,
+                title: 'Internal Server Error'
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 500
+            })));
+
+            const bloodhound = new Bloodhound({ dhl: { apiKey: 'test' } });
+
+            await assert.rejects(() => bloodhound.track(validTrackingNumbers[0], 'dhl'), (err) => {
+                assert.strictEqual(err.cause.status, 500);
+
+                return true;
+            });
+
+            // async.retry's default of 5 attempts, unchanged for transient failures.
+            assert.strictEqual(fetchMock.mock.callCount(), 5);
+        });
+
         await t.test('should set shippedAt for "PROCESSED THROUGH USPS SORT FACILITY" events from UTAPI', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 shipments: [{

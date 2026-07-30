@@ -44,7 +44,12 @@ function DHL(options) {
 
         const trackWithUTAPI = (_options) => {
             // This is the API being used from: https://developer.dhl.com/api-reference/shipment-tracking
-            async.retry(async () => {
+            //
+            // A 4xx is a permanent answer for this tracking number, so it is surfaced on the
+            // first attempt. Retrying only spends carrier calls, and those wasted calls earn
+            // the 429 that produces the next failure. A transport failure has no status to
+            // judge and stays retryable.
+            async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, async () => {
                 const response = await fetch(`https://api-eu.dhl.com/track/shipments?trackingNumber=${trackingNumber}`, {
                     headers: {
                         'Accept-Encoding': 'gzip, deflate',
@@ -53,9 +58,8 @@ function DHL(options) {
                     signal: AbortSignal.timeout(5000)
                 });
 
-                // Anything other than a 200 is treated as a failure and retried, which is
-                // what the previous `request` implementation did — deliberately narrower
-                // than response.ok.
+                // Anything other than a 200 is a failure — deliberately narrower than
+                // response.ok, which is what the previous `request` implementation did.
                 if (response.status !== 200) {
                     throw await HttpError.from(response);
                 }
