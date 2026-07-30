@@ -509,5 +509,231 @@ test('UPS', async (t) => {
                 return true;
             });
         });
+
+        await t.test('should skip activities with an incomplete timestamp', async () => {
+            // A missing gmtDate made `.replace()` throw a TypeError that failed the whole
+            // tracking request and discarded every other activity; a missing gmtTime
+            // interpolated the string "undefined" into an Invalid Date that then flowed
+            // into deliveredAt. Only the activity we cannot place in time is dropped now.
+            //
+            // The third activity covers the same hole on the Mail Innovations path, where a
+            // missing `time` parses to midnight rather than to an Invalid Date unless the
+            // parse is strict.
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/security/v1/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({
+                    trackResponse: {
+                        shipment: [{
+                            inquiryNumber: '1Z6V86420323794365',
+                            package: [{
+                                activity: [
+                                    {
+                                        gmtDate: '20260717',
+                                        gmtOffset: '-07:00',
+                                        location: { address: { city: 'Las Vegas', countryCode: 'US', stateProvince: 'NV' } },
+                                        status: { description: 'Missing gmtTime', type: 'D' }
+                                    },
+                                    {
+                                        gmtOffset: '-05:00',
+                                        gmtTime: '20:10:00',
+                                        location: { address: { city: 'Hodgkins', countryCode: 'US', stateProvince: 'IL' } },
+                                        status: { description: 'Missing gmtDate', type: 'D' }
+                                    },
+                                    {
+                                        // A Mail Innovations style activity missing its `time`. Parsed loosely this
+                                        // becomes midnight in defaultTimezone — a plausible-looking wrong timestamp
+                                        // that would flow into deliveredAt, which is worse than an Invalid Date
+                                        date: '20260716',
+                                        location: { address: { city: 'Fillmore', countryCode: 'US', stateProvince: 'CA' } },
+                                        status: { description: 'Missing time', type: 'D' }
+                                    },
+                                    {
+                                        gmtDate: '20260715',
+                                        gmtOffset: '-04:00',
+                                        gmtTime: '03:52:47',
+                                        location: { address: { city: 'New Stanton', countryCode: 'US', stateProvince: 'PA' } },
+                                        status: { description: 'Arrived at Facility', type: 'I' }
+                                    }
+                                ],
+                                trackingNumber: '1Z6V86420323794365'
+                            }]
+                        }]
+                    }
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
+            });
+
+            const actual = await bloodhound.track('1Z6V86420323794365', 'ups');
+
+            assert.strictEqual(actual.events.length, 1);
+            assert.strictEqual(actual.events[0].date.toISOString(), '2026-07-15T03:52:47.000Z');
+            assert.strictEqual(actual.events[0].address.state, 'PA');
+
+            // Both incomplete activities were type D. deliveredAt must stay undefined
+            // rather than becoming an Invalid Date.
+            assert.strictEqual(actual.deliveredAt, undefined);
+            assert.strictEqual(actual.shippedAt.toISOString(), '2026-07-15T03:52:47.000Z');
+        });
+
+        await t.test('should read a Mail Innovations activity, which carries no GMT fields, in defaultTimezone', async () => {
+            // The activity shape below is captured verbatim from a real Mail Innovations
+            // shipment delivered 2026-07-19, with the tracking number replaced by a synthetic
+            // one. Every activity's key set is exactly date, location, logicalScan, status,
+            // time — gmtDate, gmtTime and gmtOffset appear zero times in the whole document,
+            // so none of the nine activities could be placed in time and the shipment came
+            // back with an empty `events` array.
+            //
+            // `date`/`time` are facility-local with no offset (proven against a 1Z shipment,
+            // where local == gmt + gmtOffset exactly), so they are interpreted in
+            // defaultTimezone the way DHL, Pitney Bowes and USPS already do.
+            //
+            // Fillmore CA is Pacific, so these scans are 7 hours behind UTC in July. Reading
+            // them as UTC — or in any other zone — moves the delivery scan by that difference.
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/security/v1/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({
+                    trackResponse: {
+                        shipment: [{
+                            inquiryNumber: '92612999999999999999999999',
+                            package: [{
+                                activity: [
+                                    {
+                                        date: '20260719',
+                                        location: { address: { city: 'Fillmore', countryCode: 'US', stateProvince: 'CA' } },
+                                        logicalScan: false,
+                                        status: { code: 'YC', description: 'Delivered', type: 'D' },
+                                        time: '165700'
+                                    },
+                                    {
+                                        date: '20260718',
+                                        location: { address: { city: 'Fillmore', countryCode: 'US', stateProvince: 'CA' } },
+                                        logicalScan: false,
+                                        status: { code: 'OT', description: 'Out for Delivery', type: 'I' },
+                                        time: '075300'
+                                    },
+                                    {
+                                        date: '20260716',
+                                        location: {},
+                                        logicalScan: false,
+                                        status: { code: 'MQ', description: 'Order Shipped', type: 'P' },
+                                        time: '010900'
+                                    }
+                                ],
+                                trackingNumber: '92612999999999999999999999'
+                            }]
+                        }]
+                    }
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                defaultTimezone: 'America/Los_Angeles',
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
+            });
+
+            const actual = await bloodhound.track('92612999999999999999999999', 'ups');
+
+            assert.strictEqual(actual.events.length, 3);
+
+            // 2026-07-19 16:57:00 PDT (-07:00)
+            assert.strictEqual(actual.events[0].date.toISOString(), '2026-07-19T23:57:00.000Z');
+            assert.strictEqual(actual.events[0].address.city, 'Fillmore');
+            assert.strictEqual(actual.events[0].address.state, 'CA');
+            assert.strictEqual(actual.events[0].description, 'Delivered');
+
+            // 2026-07-16 01:09:00 PDT (-07:00) — the local date is the 16th but the UTC date
+            // is still the 16th, so this also proves the conversion did not roll the day back
+            assert.strictEqual(actual.events[2].date.toISOString(), '2026-07-16T08:09:00.000Z');
+
+            assert.strictEqual(actual.deliveredAt.toISOString(), '2026-07-19T23:57:00.000Z');
+            assert.strictEqual(actual.shippedAt.toISOString(), '2026-07-18T14:53:00.000Z');
+        });
+
+        await t.test('should assume UTC for a Mail Innovations activity when no defaultTimezone is set', async () => {
+            // Unlike DHL, Pitney Bowes and USPS, UPS does not fall back to the host machine's
+            // timezone, which would make the same tracking number produce different timestamps
+            // on a laptop and in production. TZ is set to a non-UTC zone here so that the
+            // assertion still fails if that fallback comes back — CI runners are UTC, where
+            // reading the host zone and assuming UTC are indistinguishable.
+            const originalTZ = process.env.TZ;
+
+            process.env.TZ = 'America/Los_Angeles';
+
+            try {
+                t.mock.method(globalThis, 'fetch', (url) => {
+                    if (url.includes('/security/v1/oauth/token')) {
+                        return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                            headers: { 'content-type': 'application/json' },
+                            status: 200
+                        }));
+                    }
+
+                    return Promise.resolve(new Response(JSON.stringify({
+                        trackResponse: {
+                            shipment: [{
+                                inquiryNumber: '92612999999999999999999999',
+                                package: [{
+                                    activity: [
+                                        {
+                                            date: '20260719',
+                                            location: { address: { city: 'Fillmore', countryCode: 'US', stateProvince: 'CA' } },
+                                            logicalScan: false,
+                                            status: { code: 'YC', description: 'Delivered', type: 'D' },
+                                            time: '165700'
+                                        }
+                                    ],
+                                    trackingNumber: '92612999999999999999999999'
+                                }]
+                            }]
+                        }
+                    }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                });
+
+                const bloodhound = new Bloodhound({
+                    ups: {
+                        client_id: 'test-client-id',
+                        client_secret: 'test-client-secret'
+                    }
+                });
+
+                const actual = await bloodhound.track('92612999999999999999999999', 'ups');
+
+                assert.strictEqual(actual.events.length, 1);
+                assert.strictEqual(actual.events[0].date.toISOString(), '2026-07-19T16:57:00.000Z');
+                assert.strictEqual(actual.deliveredAt.toISOString(), '2026-07-19T16:57:00.000Z');
+            } finally {
+                process.env.TZ = originalTZ;
+            }
+        });
     });
 });

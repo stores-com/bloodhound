@@ -1,3 +1,4 @@
+const moment = require('moment-timezone');
 const UPS = require('@stores.com/ups');
 
 module.exports = function(options) {
@@ -46,7 +47,22 @@ module.exports = function(options) {
                 // gmtDate threw a TypeError that failed the entire tracking request, and a missing gmtTime
                 // interpolated the string "undefined" into an Invalid Date that then flowed into deliveredAt and
                 // shippedAt. Parse first and skip only the activity we can't place in time.
-                const date = new Date(`${activity.gmtDate?.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}T${activity.gmtTime}Z`);
+                let date;
+
+                if (activity.gmtDate && activity.gmtTime) {
+                    date = new Date(`${activity.gmtDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}T${activity.gmtTime}Z`);
+                } else {
+                    // Mail Innovations shipments carry no gmtDate, gmtTime or gmtOffset anywhere in the response —
+                    // only `date` and `time`, which are the facility's local time with no offset. Interpret them in
+                    // defaultTimezone the way dhl, pitneyBowes and usps do. Unlike those carriers this does not fall
+                    // back to the host machine's timezone, which would make the same tracking number produce
+                    // different timestamps on a laptop and in production.
+                    //
+                    // Parsed strictly on purpose: loosely, a missing `time` yields midnight in defaultTimezone and a
+                    // truncated `date` yields the first of the month, both plausible-looking wrong timestamps that
+                    // would flow into deliveredAt and shippedAt. Strict parsing leaves them Invalid so they're skipped.
+                    date = moment.tz(`${activity.date} ${activity.time}`, 'YYYYMMDD HHmmss', true, options?.defaultTimezone || 'UTC').toDate();
+                }
 
                 if (isNaN(date.getTime())) {
                     return;
