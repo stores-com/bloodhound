@@ -27,7 +27,6 @@ There is no explicit lint command, but the project uses ESLint with configuratio
 - `carriers/`: Individual carrier implementations (amazon.js, dhl.js, fedEx.js, ups.js, usps.js, pitneyBowes.js, dhlEcommerceSolutions.js)
 - `util/`: Utility modules for shared functionality
   - `checkDigit.js`: Validation utilities for tracking numbers
-  - `checkDigit.js`: Validation utilities for tracking numbers
 
 ### Key Design Patterns
 

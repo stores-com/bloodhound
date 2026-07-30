@@ -139,8 +139,11 @@ test('DHL', async (t) => {
                 bloodhound.track(validTrackingNumbers[0], 'dhl', (...args) => resolve(args));
             });
 
-            // No packages with length to track, so this is falling through to UTAPI
-            assert.equal(err.message.includes('401 GET https://api-eu.dhl.com/track/shipments'), true);
+            // No packages with length to track, so this is falling through to UTAPI.
+            // Asserted on the status rather than the message: the message is now
+            // @stores.com/http-error's "401 Unauthorized", and it gets replaced by the
+            // carrier's own text whenever a response body carries an `errors[]` array.
+            assert.strictEqual(err.cause.status, 401);
             assert.equal(undefined, actual);
         });
 
