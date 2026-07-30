@@ -67,9 +67,7 @@ test('DHL', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track(validTrackingNumbers[0], 'dhl', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track(validTrackingNumbers[0], 'dhl');
 
             assert.equal('DHL', actual.carrier);
         });
@@ -109,9 +107,7 @@ test('DHL', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track(validTrackingNumbers[0], 'dhl', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track(validTrackingNumbers[0], 'dhl');
 
             assert.equal('DHL', actual.carrier);
         });
@@ -130,16 +126,15 @@ test('DHL', async (t) => {
                 }
             });
 
-            const [err, actual] = await new Promise((resolve) => {
-                bloodhound.track(validTrackingNumbers[0], 'dhl', (...args) => resolve(args));
-            });
-
             // No packages with length to track, so this is falling through to UTAPI.
             // Asserted on the status rather than the message: the message is now
             // @stores.com/http-error's "401 Unauthorized", and it gets replaced by the
             // carrier's own text whenever a response body carries an `errors[]` array.
-            assert.strictEqual(err.cause.status, 401);
-            assert.equal(undefined, actual);
+            await assert.rejects(() => bloodhound.track(validTrackingNumbers[0], 'dhl'), (err) => {
+                assert.strictEqual(err.cause.status, 401);
+
+                return true;
+            });
         });
 
         await t.test('should set shippedAt for "PROCESSED THROUGH USPS SORT FACILITY" events from UTAPI', async () => {
@@ -184,9 +179,7 @@ test('DHL', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track(validTrackingNumbers[0], 'dhl', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track(validTrackingNumbers[0], 'dhl');
 
             assert.equal('DHL', actual.carrier);
             assert.ok(actual.shippedAt, 'shippedAt should be set when an event description starts with "PROCESSED THROUGH USPS SORT FACILITY"');
@@ -233,9 +226,7 @@ test('DHL', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track(validTrackingNumbers[0], 'dhl', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track(validTrackingNumbers[0], 'dhl');
 
             assert(actual.estimatedDeliveryDate);
             assert.strictEqual(actual.estimatedDeliveryDate.earliest.toISOString(), '2026-02-18T00:00:00.000Z');

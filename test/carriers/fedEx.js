@@ -53,9 +53,7 @@ test('FedEx', async (t) => {
 
         await t.test('FedEx Express and Ground', async (t) => {
             t.test('Shipment information sent to FedEx', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('449044304137821', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('449044304137821', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -80,9 +78,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Tendered', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('149331877648230', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('149331877648230', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -117,9 +113,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Picked Up', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('020207021381215', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('020207021381215', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -144,9 +138,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Arrived at FedEx location', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('403934084723025', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('403934084723025', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -182,9 +174,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('At local FedEx facility', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('920241085725456', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('920241085725456', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -260,9 +250,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('At destination sort facility', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('568838414941', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('568838414941', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -318,9 +306,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Departed FedEx location', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('039813852990618', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('039813852990618', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -366,9 +352,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('On FedEx vehicle for delivery', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('231300687629630', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('231300687629630', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -484,9 +468,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('International shipment release', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('797806677146', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('797806677146', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -592,9 +574,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Customer not available or business closed (Delivery Exception 007)', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('377101283611590', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('377101283611590', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -701,9 +681,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Local Delivery Restriction (Delivery Exception 083)', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('852426136339213', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('852426136339213', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -821,9 +799,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Incorrect Address (Delivery Exception 03)', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('797615467620', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('797615467620', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -920,9 +896,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Unable to Deliver (Shipment Exception 099)', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('957794015041323', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('957794015041323', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1011,9 +985,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Returned to Sender/Shipper', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('076288115212522', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('076288115212522', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1160,9 +1132,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Clearance delay (International)', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('581190049992', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('581190049992', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1281,9 +1251,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Delivered', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('122816215025810', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('122816215025810', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1401,9 +1369,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Hold at Location', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('843119172384577', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('843119172384577', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1596,9 +1562,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Shipment Canceled', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('070358180009382', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('070358180009382', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1636,9 +1600,7 @@ test('FedEx', async (t) => {
 
         await t.test('FedEx SmartPost', async (t) => {
             t.test('Shipment information sent to FedEx', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('02394653001023698293', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('02394653001023698293', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1663,9 +1625,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('In transit', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('61292701078443410536', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('61292701078443410536');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1721,9 +1681,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Out for delivery', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('61292700726653585070', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('61292700726653585070', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1802,9 +1760,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Delivered', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('02394653018047202719', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('02394653018047202719', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1931,9 +1887,7 @@ test('FedEx', async (t) => {
         // new API has no Mock Tracking Numbers for FedEx Freight LTL and our numbers have been reused/recycled
         await t.test('FedEx Freight LTL', { skip: true }, async (t) => {
             t.test('Picked Up', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('2873008051', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('2873008051', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1957,9 +1911,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('In transit', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('1960003216', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('1960003216', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -1995,9 +1947,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Weather delay (Shipment Exception)', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('1208673524', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('1208673524', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -2063,9 +2013,7 @@ test('FedEx', async (t) => {
             });
 
             t.test('Delivered', async () => {
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('1636374036', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('1636374036', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',
@@ -2191,9 +2139,7 @@ test('FedEx', async (t) => {
                     }
                 });
 
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('039813852990618', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('039813852990618', 'fedex');
 
                 delete actual.raw;
 
@@ -2243,9 +2189,7 @@ test('FedEx', async (t) => {
                     }
                 });
 
-                const actual = await new Promise((resolve, reject) => {
-                    bloodhound.track('02394653001023698293', 'fedex', (err, data) => err ? reject(err) : resolve(data));
-                });
+                const actual = await bloodhound.track('02394653001023698293', 'fedex');
 
                 const expected = {
                     carrier: 'FedEx',

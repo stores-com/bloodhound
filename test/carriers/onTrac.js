@@ -310,9 +310,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
                 }));
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1LSTEST00000001', 'ontrac', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1LSTEST00000001', 'ontrac');
 
             assert.strictEqual(fetchMock.mock.callCount(), 1);
             assert.strictEqual(fetchMock.mock.calls[0].arguments[0], 'https://webtrack.ontrac.com/PackageServices/tracking/1LSTEST00000001');
@@ -350,9 +348,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
                 }));
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1LSTEST00000001', 'ontrac', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1LSTEST00000001', 'ontrac');
 
             assert.deepStrictEqual(actual.events.map(event => event.date.toISOString()), [
                 '2026-07-21T15:30:25.000Z',
@@ -373,9 +369,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
                 }));
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1LSTEST00000001', 'ontrac', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1LSTEST00000001', 'ontrac');
 
             // The origin scan, second-oldest.
             assert.deepStrictEqual(actual.events[1].address, {
@@ -408,9 +402,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
                 }));
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1LSTEST00000002', 'ontrac', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1LSTEST00000002', 'ontrac');
 
             assert.strictEqual(actual.events.length, 6);
 
@@ -429,9 +421,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
                 }));
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1LSTEST00000003', 'ontrac', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1LSTEST00000003', 'ontrac');
 
             assert.strictEqual(actual.carrier, 'OnTrac');
             assert.strictEqual(actual.events.length, 0);
@@ -465,9 +455,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
                 return Promise.resolve(new Response('Internal Server Error', { status: 500 }));
             });
 
-            await assert.rejects(new Promise((resolve, reject) => {
-                bloodhound.track('1LSTEST00000003', 'ontrac', (err, data) => err ? reject(err) : resolve(data));
-            }), (err) => {
+            await assert.rejects(() => bloodhound.track('1LSTEST00000003', 'ontrac'), (err) => {
                 assert.strictEqual(err.name, 'HttpError');
                 assert.strictEqual(err.cause.status, 500);
 

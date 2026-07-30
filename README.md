@@ -60,9 +60,9 @@ const bloodhound = new Bloodhound({
     }
 });
 
-bloodhound.track('tracking number', { carrier: 'USPS' }, function(err, data) {
-    console.log(data);
-});
+const data = await bloodhound.track('tracking number', { carrier: 'USPS' });
+
+console.log(data);
 ```
 
 ## API
@@ -98,9 +98,9 @@ const bloodhound = new Bloodhound({
     }
 });
 
-bloodhound.track('tracking number', 'FedEx', function(err, data) {
-    console.log(data);
-});
+const data = await bloodhound.track('tracking number', 'FedEx');
+
+console.log(data);
 ```
 
 **amazon**
@@ -147,14 +147,14 @@ console.log(carrier);
 
 ```
 
-### bloodhound.track(trackingNumber, [options,] callback)
+### bloodhound.track(trackingNumber, [options])
 
-Retrieves tracking data for the specified tracking number.
+Returns a promise that resolves with tracking data for the specified tracking number.
 
 ```javascript
-bloodhound.track('tracking number', { carrier: 'USPS' }, function(err, data) {
-    console.log(data);
-});
+const data = await bloodhound.track('tracking number', { carrier: 'USPS' });
+
+console.log(data);
 ```
 
 **Data**

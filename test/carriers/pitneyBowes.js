@@ -123,11 +123,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const err = await new Promise((resolve) => {
-            bloodhound.track('9400111899223837861141', 'pitney bowes', (err) => resolve(err));
-        });
-
-        assert(err);
+        await assert.rejects(() => bloodhound.track('9400111899223837861141', 'pitney bowes'));
     });
 
     await t.test('should return tracking events with delivered and shipped dates', async (t) => {
@@ -141,9 +137,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
 
         assert.strictEqual(results.carrier, 'Pitney Bowes');
         assert.strictEqual(results.events.length, 5);
@@ -173,9 +167,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
 
         // The event from "DISTRIBUTION CENTER INDIANAPOLIS" should have city cleaned up
         const indianapolisEvent = results.events.find(e => e.address.state === 'IN');
@@ -194,9 +186,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', 'newgistics', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'newgistics');
 
         assert.strictEqual(results.carrier, 'Newgistics');
     });
@@ -231,9 +221,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
 
         assert.strictEqual(results.carrier, 'Pitney Bowes');
         assert.strictEqual(results.events.length, 0);
@@ -250,9 +238,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', { carrier: 'pitney bowes', minDate: new Date('2026-03-30T00:00:00Z') }, (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', { carrier: 'pitney bowes', minDate: new Date('2026-03-30T00:00:00Z') });
 
         // Only events on or after 2026-03-30 should be included
         assert(results.events.length < 5);
@@ -294,9 +280,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('0004290252994200071698133931119', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('0004290252994200071698133931119', 'pitney bowes');
 
         // Should use IMB carrier and truncate to 20 chars
         assert(capturedUrl.includes('carrier=IMB'));
@@ -315,9 +299,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
 
         assert(results);
         assert(results.events.length > 0);
@@ -356,9 +338,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
 
         assert.strictEqual(results.carrier, 'Pitney Bowes');
         assert.strictEqual(results.events.length, 0);
@@ -411,9 +391,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
 
         assert(results.deliveredAt);
         assert(results.shippedAt);
@@ -482,9 +460,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
             }
         });
 
-        const results = await new Promise((resolve, reject) => {
-            bloodhound.track('4203300992612927005269000093974783', 'pitney bowes', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
 
         assert.strictEqual(results.events.length, 1);
         assert(results.events[0].date instanceof Date);
