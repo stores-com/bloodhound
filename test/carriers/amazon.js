@@ -69,9 +69,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
 
     await t.test('amazon.track', async (t) => {
         await t.test('should return tracking information for a valid delivered package', { skip: true }, async () => {
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('TBA322242594054', 'amazon', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('TBA322242594054', 'amazon');
 
             assert.strictEqual(actual.carrier, 'Amazon');
             assert(actual.events.length > 0);
@@ -103,27 +101,21 @@ test('Amazon', { timeout: 30000 }, async (t) => {
         });
 
         await t.test('should handle tracking numbers with spaces', { skip: true }, async () => {
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('TBA 3222 4259 4054', 'amazon', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('TBA 3222 4259 4054', 'amazon');
 
             assert.strictEqual(actual.carrier, 'Amazon');
             assert(actual.events.length > 0);
         });
 
         await t.test('should handle lowercase tracking numbers', { skip: true }, async () => {
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('tba322242594054', 'amazon', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('tba322242594054', 'amazon');
 
             assert.strictEqual(actual.carrier, 'Amazon');
             assert(actual.events.length > 0);
         });
 
         await t.test('should return empty events for invalid tracking number', async () => {
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('TBA000000000000', 'amazon', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('TBA000000000000', 'amazon');
 
             assert.strictEqual(actual.carrier, 'Amazon');
             assert.strictEqual(actual.events.length, 0);
@@ -171,9 +163,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
                 status: 200
             })));
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('TBA321677302718', 'amazon', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('TBA321677302718', 'amazon');
 
             const eventsWithLocation = actual.events.filter(event =>
                 event.address.city || event.address.state || event.address.country
@@ -212,9 +202,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
                 status: 200
             })));
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('TBA321677302718', 'amazon', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('TBA321677302718', 'amazon');
 
             assert(Object.hasOwn(actual, 'raw'));
 
@@ -262,9 +250,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
                 status: 200
             })));
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('TBA321677302718', 'amazon', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('TBA321677302718', 'amazon');
 
             if (actual.events.length > 1) {
                 for (let i = 1; i < actual.events.length; i++) {
@@ -292,9 +278,7 @@ test('Amazon', { timeout: 30000 }, async (t) => {
                 status: 200
             })));
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('TBA322242594054', 'amazon', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('TBA322242594054', 'amazon');
 
             assert(actual.estimatedDeliveryDate);
             assert.strictEqual(actual.estimatedDeliveryDate.earliest.toISOString(), '2025-06-23T08:00:00.000Z');

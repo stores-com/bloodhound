@@ -112,9 +112,7 @@ test('UPS', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1Z5338FF0107231059', 'ups', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1Z5338FF0107231059', 'ups');
 
             assert.strictEqual(actual.carrier, 'UPS');
             assert.strictEqual(actual.deliveredAt, undefined);
@@ -197,9 +195,7 @@ test('UPS', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1Z6V86420323794365', 'ups', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1Z6V86420323794365', 'ups');
 
             assert.strictEqual(actual.carrier, 'UPS');
             assert.strictEqual(actual.events.length, 3);
@@ -378,9 +374,7 @@ test('UPS', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1Z999AA10123456784', 'ups', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1Z999AA10123456784', 'ups');
 
             assert.deepStrictEqual(actual.events.map(event => event.date.toISOString()), [
                 '2025-12-05T16:29:38.000Z',
@@ -431,9 +425,7 @@ test('UPS', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1ZW1R264YW05926068', 'ups', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1ZW1R264YW05926068', 'ups');
 
             assert.strictEqual(actual.carrier, 'UPS');
             assert.strictEqual(actual.events.length, 0);
@@ -474,9 +466,7 @@ test('UPS', async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('1Z5338FF0107231059', 'ups', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('1Z5338FF0107231059', 'ups');
 
             assert.strictEqual(actual.carrier, 'UPS');
             assert.strictEqual(actual.events.length, 0);
@@ -513,12 +503,11 @@ test('UPS', async (t) => {
                 }
             });
 
-            const args = await new Promise((resolve) => {
-                bloodhound.track('1Z5338FF0107231059', 'ups', (...args) => resolve(args));
-            });
+            await assert.rejects(() => bloodhound.track('1Z5338FF0107231059', 'ups'), (err) => {
+                assert.strictEqual(err.cause.status, 400);
 
-            assert.strictEqual(args[0].cause.status, 400);
-            assert.strictEqual(args[1], undefined);
+                return true;
+            });
         });
     });
 });

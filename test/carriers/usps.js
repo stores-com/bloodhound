@@ -73,11 +73,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
                 }
             });
 
-            const err = await new Promise((resolve) => {
-                bloodhound.track('9400111899223837861141', 'usps', (err) => resolve(err));
-            });
-
-            assert(err);
+            await assert.rejects(() => bloodhound.track('9400111899223837861141', 'usps'));
         });
     });
 
@@ -106,9 +102,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('0987654321234567890', 'usps', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('0987654321234567890', 'usps');
 
             const expected = {
                 carrier: 'USPS',
@@ -156,9 +150,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('9400150105798014348298', 'usps', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('9400150105798014348298', 'usps');
 
             assert.strictEqual(actual.estimatedDeliveryDate.earliest.toISOString(), '2025-07-28T00:00:00.000Z');
             assert.strictEqual(actual.estimatedDeliveryDate.latest.toISOString(), '2025-07-28T00:00:00.000Z');
@@ -209,9 +201,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('9400150106151109769726', 'usps', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('9400150106151109769726', 'usps');
 
             assert(actual.shippedAt, 'shippedAt should be set');
             assert(util.types.isDate(actual.shippedAt), 'shippedAt should be a Date');
@@ -252,9 +242,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
                 }
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                bloodhound.track('9400150106151109769726', 'usps', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await bloodhound.track('9400150106151109769726', 'usps');
 
             assert(actual.deliveredAt, 'deliveredAt should be set');
             assert(util.types.isDate(actual.deliveredAt), 'deliveredAt should be a Date');

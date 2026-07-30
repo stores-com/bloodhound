@@ -45,9 +45,7 @@ test('defaultTimezone', async (t) => {
             }
         });
 
-        const actual = await new Promise((resolve, reject) => {
-            bloodhound.track('9400111899223837861141', 'usps', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const actual = await bloodhound.track('9400111899223837861141', 'usps');
 
         // The event date should be parsed using America/Los_Angeles, not America/New_York
         const event = actual.events[0];
@@ -74,9 +72,7 @@ test('defaultTimezone', async (t) => {
             }
         });
 
-        const actual = await new Promise((resolve, reject) => {
-            bloodhound.track('9400111899223837861141', 'usps', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const actual = await bloodhound.track('9400111899223837861141', 'usps');
 
         const event = actual.events[0];
         assert.ok(event);

@@ -69,13 +69,7 @@ function Bloodhound(options) {
         }
     };
 
-    this.track = (trackingNumber, options, callback) => {
-        // Options are optional
-        if (typeof options === 'function') {
-            callback = options;
-            options = {};
-        }
-
+    this.track = (trackingNumber, options) => {
         // Backwards compatibility
         if (typeof options === 'string') {
             options = {
@@ -87,59 +81,51 @@ function Bloodhound(options) {
             options = {};
         }
 
-        const executor = () => {
-            return new Promise((resolve, reject) => {
-                if (!trackingNumber) {
-                    return reject(new Error('Tracking number is not specified.'));
-                }
+        return new Promise((resolve, reject) => {
+            if (!trackingNumber) {
+                return reject(new Error('Tracking number is not specified.'));
+            }
 
-                // Try to guess the carrier
+            // Try to guess the carrier
+            if (!options.carrier) {
+                options.carrier = this.guessCarrier(trackingNumber);
+
+                // If we still don't know the carrier return an error
                 if (!options.carrier) {
-                    options.carrier = this.guessCarrier(trackingNumber);
-
-                    // If we still don't know the carrier return an error
-                    if (!options.carrier) {
-                        return reject(new Error('Unknown carrier.'));
-                    }
+                    return reject(new Error('Unknown carrier.'));
                 }
+            }
 
-                options.carrier = options.carrier.toLowerCase();
-                trackingNumber = trackingNumber.replace(/\s/g, '');
-                trackingNumber = trackingNumber.toUpperCase();
+            options.carrier = options.carrier.toLowerCase();
+            trackingNumber = trackingNumber.replace(/\s/g, '');
+            trackingNumber = trackingNumber.toUpperCase();
 
-                let carrier;
+            let carrier;
 
-                if (['amazon', 'amazon shipping'].includes(options.carrier)) {
-                    carrier = amazon;
-                } else if (options.carrier === 'dhl') {
-                    carrier = dhl;
-                } else if (options.carrier === 'fedex') {
-                    carrier = fedEx;
-                } else if (options.carrier === 'gofo') {
-                    carrier = gofo;
-                } else if (['lasership', 'ontrac'].includes(options.carrier)) {
-                    carrier = onTrac;
-                } else if (['newgistics', 'pitney bowes'].includes(options.carrier)) {
-                    carrier = pitneyBowes;
-                } else if (options.carrier === 'ups') {
-                    carrier = ups;
-                } else if (options.carrier === 'usps') {
-                    carrier = usps;
-                } else if (options.carrier === 'xpo') {
-                    carrier = xpo;
-                } else {
-                    return reject(new Error(`Carrier ${options.carrier} is not supported.`));
-                }
+            if (['amazon', 'amazon shipping'].includes(options.carrier)) {
+                carrier = amazon;
+            } else if (options.carrier === 'dhl') {
+                carrier = dhl;
+            } else if (options.carrier === 'fedex') {
+                carrier = fedEx;
+            } else if (options.carrier === 'gofo') {
+                carrier = gofo;
+            } else if (['lasership', 'ontrac'].includes(options.carrier)) {
+                carrier = onTrac;
+            } else if (['newgistics', 'pitney bowes'].includes(options.carrier)) {
+                carrier = pitneyBowes;
+            } else if (options.carrier === 'ups') {
+                carrier = ups;
+            } else if (options.carrier === 'usps') {
+                carrier = usps;
+            } else if (options.carrier === 'xpo') {
+                carrier = xpo;
+            } else {
+                return reject(new Error(`Carrier ${options.carrier} is not supported.`));
+            }
 
-                carrier.track(trackingNumber, options, (err, data) => err ? reject(err) : resolve(data));
-            });
-        };
-
-        if (callback) {
-            executor().then((result) => callback(null, result)).catch(callback);
-        } else {
-            return executor();
-        }
+            carrier.track(trackingNumber, options, (err, data) => err ? reject(err) : resolve(data));
+        });
     };
 }
 

@@ -49,15 +49,14 @@ test('DHL eCommerce Solutions', async (t) => {
         });
 
         await t.test('should return a DHL error when no packages are associated with tracking number', async () => {
-            const [err, actual] = await new Promise((resolve) => {
-                bloodhound.track(validTrackingNumbers[0], 'dhl', (...args) => resolve(args));
-            });
-
             // No packages with length to track, so this is falling through to UTAPI.
             // Asserted on the status rather than the message, which is now
             // @stores.com/http-error's "401 Unauthorized".
-            assert.strictEqual(err.cause.status, 401);
-            assert.equal(undefined, actual);
+            await assert.rejects(() => bloodhound.track(validTrackingNumbers[0], 'dhl'), (err) => {
+                assert.strictEqual(err.cause.status, 401);
+
+                return true;
+            });
         });
     });
 
