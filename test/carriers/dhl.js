@@ -185,6 +185,87 @@ test('DHL', async (t) => {
             assert.strictEqual(fetchMock.mock.callCount(), 5);
         });
 
+        await t.test('should not multiply retries through the DHL eCommerce Solutions path', async () => {
+            const fetchMock = t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                detail: 'Too many requests within defined time period, please try again later.',
+                status: 429,
+                title: 'Too Many Requests'
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 429
+            })));
+
+            const bloodhound = new Bloodhound({
+                dhl: {
+                    apiKey: 'test'
+                },
+                dhlEcommerceSolutions: {
+                    client_id: 'test',
+                    client_secret: 'test',
+                    environment_url: 'https://api-sandbox.dhlecs.com'
+                }
+            });
+
+            // This number is valid for DHL eCommerce Solutions, so the lookup takes the
+            // eCommerce path first and then falls through to the UTAPI.
+            await assert.rejects(() => bloodhound.track('420480369374810912400407068201', 'dhl'), (err) => {
+                assert.strictEqual(err.cause.status, 429);
+
+                return true;
+            });
+
+            // Two calls: the access token request, which is where a 429 on every endpoint
+            // stops this path, and then the UTAPI. The outer retry wrapping
+            // dhlEcommerceSolutions.track() multiplies the inner one rather than adding to it,
+            // so without its own filter a single 429 costs 6 calls instead of 2.
+            assert.strictEqual(fetchMock.mock.callCount(), 2);
+        });
+
+        await t.test('should not retry a DHL eCommerce Solutions 4xx before falling through to the UTAPI', async () => {
+            // dhlEcommerceSolutions.track() retries internally and this file wraps it in another
+            // async.retry, so the two multiply rather than add. Both need the filter: with it on
+            // only the inner one, a 429 still cost five lookups, because each was a fresh outer
+            // attempt. 429 rather than 404 because a 404 returns empty results instead of an
+            // error and never reaches the outer retry's error path at all.
+            const dhlEcommerceSolutionsTrackingNumber = '420480369374810912400407068201';
+
+            const fetchMock = t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/auth/v4/accesstoken')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                if (url.includes('/tracking/v4/package')) {
+                    return Promise.resolve(new Response(JSON.stringify({ errors: [{ message: 'Too Many Requests' }] }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 429
+                    }));
+                }
+
+                // The UTAPI, which a DHL eCommerce Solutions failure is meant to fall through to.
+                return Promise.resolve(new Response(JSON.stringify({ shipments: [] }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                dhl: { apiKey: 'test' },
+                dhlEcommerceSolutions: {
+                    client_id: 'test',
+                    client_secret: 'test',
+                    environment_url: 'https://api-sandbox.dhlecs.com'
+                }
+            });
+
+            await bloodhound.track(dhlEcommerceSolutionsTrackingNumber, 'dhl');
+
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('/tracking/v4/package')).length, 1);
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('api-eu.dhl.com')).length, 1);
+        });
+
         await t.test('should set shippedAt for "PROCESSED THROUGH USPS SORT FACILITY" events from UTAPI', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 shipments: [{

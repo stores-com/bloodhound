@@ -163,7 +163,11 @@ function DHL(options) {
         };
 
         if (options.dhlEcommerceSolutions && dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber)) {
-            async.retry((callback) => {
+            // dhlEcommerceSolutions.track() retries internally, so this outer retry multiplies
+            // it rather than adding to it. The same 4xx filter has to be here too: without it a
+            // 429 still cost five lookups after the inner retry had already stopped retrying,
+            // because each of those five was a fresh outer attempt.
+            async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, (callback) => {
                 dhlEcommerceSolutions.track(trackingNumber, _options, callback);
             }, (err, results) => {
                 // If DHL eCommerce Solutions fails, try UTAPI
