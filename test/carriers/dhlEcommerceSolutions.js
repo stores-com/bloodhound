@@ -9,7 +9,7 @@ test('DHL eCommerce Solutions', async (t) => {
         '420480369374810912400407068201'
     ];
 
-    t.test('dhlEcommerceSolutions.isTrackingNumberValid', { concurrency: true }, async (t) => {
+    await t.test('dhlEcommerceSolutions.isTrackingNumberValid', async (t) => {
         const dhlEcommerceSolutions = new DhlEcommerceSolutions({
             client_id: process.env.DHL_ECOMMERCE_CLIENT_ID,
             client_secret: process.env.DHL_ECOMMERCE_CLIENT_SECRET,
@@ -22,7 +22,7 @@ test('DHL eCommerce Solutions', async (t) => {
             '9400 1118 9922 3818 2184 07'
         ];
 
-        t.test('should detect valid DHL eCommerce Solutions tracking numbers', () => {
+        await t.test('should detect valid DHL eCommerce Solutions tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} is not recognized as a valid DHL tracking number`);
@@ -30,7 +30,7 @@ test('DHL eCommerce Solutions', async (t) => {
             });
         });
 
-        t.test('should not detect invalid DHL eCommerce Solutions tracking numbers', () => {
+        await t.test('should not detect invalid DHL eCommerce Solutions tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid DHL tracking number`);
@@ -39,7 +39,7 @@ test('DHL eCommerce Solutions', async (t) => {
         });
     });
 
-    t.test('dhlEcommerceSolutions.track', { skip: true, timeout: 10000 }, async (t) => {
+    await t.test('dhlEcommerceSolutions.track', { skip: true, timeout: 10000 }, async (t) => {
         const bloodhound = new Bloodhound({
             dhlEcommerceSolutions: {
                 client_id: process.env.DHL_ECOMMERCE_SOLUTIONS_CLIENT_ID,
@@ -48,7 +48,7 @@ test('DHL eCommerce Solutions', async (t) => {
             }
         });
 
-        t.test('should return a DHL error when no packages are associated with tracking number', async () => {
+        await t.test('should return a DHL error when no packages are associated with tracking number', async () => {
             const [err, actual] = await new Promise((resolve) => {
                 bloodhound.track(validTrackingNumbers[0], 'dhl', (...args) => resolve(args));
             });

@@ -2,8 +2,6 @@ const assert = require('node:assert');
 const test = require('node:test');
 const util = require('node:util');
 
-const nock = require('nock');
-
 const Bloodhound = require('../../index');
 const FedEx = require('../../carriers/fedEx');
 
@@ -40,7 +38,10 @@ test('FedEx', async (t) => {
         });
     });
 
-    t.test('fedEx.track', { concurrency: true, timeout: 30000 }, async (t) => {
+    // `fedEx request handling` and `FedEx estimatedDeliveryDate` mock globalThis.fetch,
+    // which is process-wide. These groups therefore have to run one at a time, or the
+    // mock intercepts the live FedEx calls the other groups make.
+    await t.test('fedEx.track', { timeout: 30000 }, async (t) => {
 
         const bloodhound = new Bloodhound({
             fedEx: {
@@ -50,7 +51,7 @@ test('FedEx', async (t) => {
             }
         });
 
-        t.test('FedEx Express and Ground', { concurrency: true }, async (t) => {
+        await t.test('FedEx Express and Ground', async (t) => {
             t.test('Shipment information sent to FedEx', async () => {
                 const actual = await new Promise((resolve, reject) => {
                     bloodhound.track('449044304137821', 'fedex', (err, data) => err ? reject(err) : resolve(data));
@@ -1633,7 +1634,7 @@ test('FedEx', async (t) => {
 
         });
 
-        t.test('FedEx SmartPost', { concurrency: true }, async (t) => {
+        await t.test('FedEx SmartPost', async (t) => {
             t.test('Shipment information sent to FedEx', async () => {
                 const actual = await new Promise((resolve, reject) => {
                     bloodhound.track('02394653001023698293', 'fedex', (err, data) => err ? reject(err) : resolve(data));
@@ -1928,7 +1929,7 @@ test('FedEx', async (t) => {
         });
 
         // new API has no Mock Tracking Numbers for FedEx Freight LTL and our numbers have been reused/recycled
-        t.test('FedEx Freight LTL', { skip: true }, async (t) => {
+        await t.test('FedEx Freight LTL', { skip: true }, async (t) => {
             t.test('Picked Up', async () => {
                 const actual = await new Promise((resolve, reject) => {
                     bloodhound.track('2873008051', 'fedex', (err, data) => err ? reject(err) : resolve(data));
@@ -2152,19 +2153,17 @@ test('FedEx', async (t) => {
             });
         });
 
-        t.test('FedEx estimatedDeliveryDate', async (t) => {
-            t.test('should handle estimatedDeliveryTimeWindow if present', async () => {
-                nock('https://apis.fedex.com')
-                    .post('/oauth/token')
-                    .reply(200, {
-                        access_token: 'fake-token-123',
-                        token_type: 'bearer',
-                        expires_in: 3600
-                    });
+        await t.test('FedEx estimatedDeliveryDate', async (t) => {
+            await t.test('should handle estimatedDeliveryTimeWindow if present', async () => {
+                t.mock.method(globalThis, 'fetch', (url) => {
+                    if (url.endsWith('/oauth/token')) {
+                        return Promise.resolve(new Response(JSON.stringify({ access_token: 'fake-token-123', expires_in: 3600, token_type: 'bearer' }), {
+                            headers: { 'content-type': 'application/json' },
+                            status: 200
+                        }));
+                    }
 
-                nock('https://apis.fedex.com')
-                    .post('/track/v1/trackingnumbers')
-                    .reply(200, {
+                    return Promise.resolve(new Response(JSON.stringify({
                         output: {
                             completeTrackResults: [{
                                 trackResults: [{
@@ -2177,7 +2176,11 @@ test('FedEx', async (t) => {
                                 }]
                             }]
                         }
-                    });
+                    }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                });
 
                 const bloodhound = new Bloodhound({
                     fedEx: {
@@ -2210,24 +2213,26 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('should handle missing estimatedDeliveryTimeWindow gracefully', async () => {
-                nock('https://apis.fedex.com')
-                    .post('/oauth/token')
-                    .reply(200, {
-                        access_token: 'fake-token-123',
-                        token_type: 'bearer',
-                        expires_in: 3600
-                    });
+            await t.test('should handle missing estimatedDeliveryTimeWindow gracefully', async () => {
+                t.mock.method(globalThis, 'fetch', (url) => {
+                    if (url.endsWith('/oauth/token')) {
+                        return Promise.resolve(new Response(JSON.stringify({ access_token: 'fake-token-123', expires_in: 3600, token_type: 'bearer' }), {
+                            headers: { 'content-type': 'application/json' },
+                            status: 200
+                        }));
+                    }
 
-                nock('https://apis.fedex.com')
-                    .post('/track/v1/trackingnumbers')
-                    .reply(200, {
+                    return Promise.resolve(new Response(JSON.stringify({
                         output: {
                             completeTrackResults: [{
                                 trackResults: [{}]
                             }]
                         }
-                    });
+                    }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                });
 
                 const bloodhound = new Bloodhound({
                     fedEx: {

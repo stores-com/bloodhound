@@ -2,13 +2,11 @@ const assert = require('node:assert');
 const test = require('node:test');
 const util = require('node:util');
 
-const nock = require('nock');
-
 const Bloodhound = require('../../index');
 const USPS = require('../../carriers/usps.js');
 
 test('USPS', { timeout: 10000 }, async (t) => {
-    t.test('usps.isTrackingNumberValid', { concurrency: true }, async (t) => {
+    await t.test('usps.isTrackingNumberValid', async (t) => {
         const usps = new USPS();
 
         const validTrackingNumbers = [
@@ -48,7 +46,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
             '4206810692612927005269000028978090'
         ];
 
-        t.test('should detect valid USPS tracking numbers', () => {
+        await t.test('should detect valid USPS tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!usps.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} is not recognized as a valid USPS tracking number`);
@@ -56,7 +54,7 @@ test('USPS', { timeout: 10000 }, async (t) => {
             });
         });
 
-        t.test('should not detect invalid USPS tracking numbers', () => {
+        await t.test('should not detect invalid USPS tracking numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (usps.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid USPS tracking number`);
@@ -65,8 +63,8 @@ test('USPS', { timeout: 10000 }, async (t) => {
         });
     });
 
-    t.test('Error Handling', { concurrency: true }, async (t) => {
-        t.test('should return an error for invalid credentials', async () => {
+    await t.test('Error Handling', async (t) => {
+        await t.test('should return an error for invalid credentials', async () => {
             const bloodhound = new Bloodhound({
                 usps: {
                     client_id: 'invalid',
@@ -83,18 +81,22 @@ test('USPS', { timeout: 10000 }, async (t) => {
         });
     });
 
-    t.test('USPS Tracking', { concurrency: true }, async (t) => {
-        t.test('should return an empty result if there is no tracking information available', async () => {
-            nock('https://apis.usps.com')
-                .post('/oauth2/v3/token')
-                .reply(200, {
-                    access_token: 'test_token',
-                    expires_in: 3600
-                });
+    // These share a single globalThis.fetch mock, so they must run one at a time.
+    await t.test('USPS Tracking', async (t) => {
+        await t.test('should return an empty result if there is no tracking information available', async () => {
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth2/v3/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test_token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
 
-            nock('https://apis.usps.com')
-                .post('/tracking/v3r2/tracking')
-                .reply(200, []);
+                return Promise.resolve(new Response(JSON.stringify([]), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
 
             const bloodhound = new Bloodhound({
                 usps: {
@@ -118,17 +120,16 @@ test('USPS', { timeout: 10000 }, async (t) => {
             assert.deepStrictEqual(actual, expected);
         });
 
-        t.test('should return estimatedDeliveryDate when available in USPS response', async () => {
-            nock('https://apis.usps.com')
-                .post('/oauth2/v3/token')
-                .reply(200, {
-                    access_token: 'test_token',
-                    expires_in: 3600
-                });
+        await t.test('should return estimatedDeliveryDate when available in USPS response', async () => {
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth2/v3/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test_token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
 
-            nock('https://apis.usps.com')
-                .post('/tracking/v3r2/tracking')
-                .reply(200, [{
+                return Promise.resolve(new Response(JSON.stringify([{
                     expectedDeliveryDate: '2025-07-28',
                     statusCategory: 'Delivered',
                     statusSummary: 'Delivered',
@@ -141,7 +142,11 @@ test('USPS', { timeout: 10000 }, async (t) => {
                         eventCountry: 'US',
                         statusCategory: 'Delivered'
                     }]
-                }]);
+                }]), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
 
             const bloodhound = new Bloodhound({
                 usps: {
@@ -161,17 +166,16 @@ test('USPS', { timeout: 10000 }, async (t) => {
             assert.strictEqual(util.types.isDate(actual.estimatedDeliveryDate.latest), true, 'latest is not a valid Date object');
         });
 
-        t.test('should set shippedAt from top-level statusCategory when per-event statusCategory is missing', async () => {
-            nock('https://apis.usps.com')
-                .post('/oauth2/v3/token')
-                .reply(200, {
-                    access_token: 'test_token',
-                    expires_in: 3600
-                });
+        await t.test('should set shippedAt from top-level statusCategory when per-event statusCategory is missing', async () => {
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth2/v3/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test_token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
 
-            nock('https://apis.usps.com')
-                .post('/tracking/v3r2/tracking')
-                .reply(200, [{
+                return Promise.resolve(new Response(JSON.stringify([{
                     statusCategory: 'In Transit',
                     statusSummary: 'In Transit to Next Facility',
                     trackingEvents: [{
@@ -191,7 +195,11 @@ test('USPS', { timeout: 10000 }, async (t) => {
                         eventZIPCode: '75010',
                         eventCountry: 'US'
                     }]
-                }]);
+                }]), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
 
             const bloodhound = new Bloodhound({
                 usps: {
@@ -209,17 +217,16 @@ test('USPS', { timeout: 10000 }, async (t) => {
             assert(util.types.isDate(actual.shippedAt), 'shippedAt should be a Date');
         });
 
-        t.test('should set deliveredAt from top-level statusCategory when per-event statusCategory is missing', async () => {
-            nock('https://apis.usps.com')
-                .post('/oauth2/v3/token')
-                .reply(200, {
-                    access_token: 'test_token',
-                    expires_in: 3600
-                });
+        await t.test('should set deliveredAt from top-level statusCategory when per-event statusCategory is missing', async () => {
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth2/v3/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test_token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
 
-            nock('https://apis.usps.com')
-                .post('/tracking/v3r2/tracking')
-                .reply(200, [{
+                return Promise.resolve(new Response(JSON.stringify([{
                     statusCategory: 'Delivered',
                     statusSummary: 'Delivered, In/At Mailbox',
                     trackingEvents: [{
@@ -231,7 +238,11 @@ test('USPS', { timeout: 10000 }, async (t) => {
                         eventZIPCode: '39201',
                         eventCountry: 'US'
                     }]
-                }]);
+                }]), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
 
             const bloodhound = new Bloodhound({
                 usps: {
