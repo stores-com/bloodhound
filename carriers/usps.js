@@ -4,7 +4,6 @@ const moment = require('moment-timezone');
 const USPS = require('@stores.com/usps');
 
 const checkDigit = require('../util/checkDigit');
-const geography = require('../util/geography');
 
 const CITY_BLACKLIST = /DISTRIBUTION CENTER|INTERNATIONAL DISTRIBUTION CENTER|NETWORK DISTRIBUTION CENTER/ig;
 const DELIVERED_STATUS_CATEGORIES = ['Delivered'];
@@ -115,7 +114,6 @@ function USPSCarrier(options) {
                 });
             }
 
-            // Set address and location for each event
             trackingEvents.forEach(event => {
                 event.address = {
                     city: (event.eventCity || '').replace(CITY_BLACKLIST, '').trim(),
@@ -124,95 +122,58 @@ function USPSCarrier(options) {
                     zip: event.eventZIPCode || ''
                 };
 
-                event.location = geography.addressToString(event.address);
+                // USPS timestamps carry no offset, so they're interpreted in the caller's
+                // configured timezone. Without geocoding we can't know the scan's own zone,
+                // so a scan in another timezone will be off by the difference between them.
+                const timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+                // Parse the timestamp - USPS API returns ISO format like "2025-07-28T12:00:00Z"
+                const eventDate = moment.tz(event.eventTimestamp, timezone).toDate();
+
+                const bloodhoundEvent = {
+                    address: event.address,
+                    date: eventDate,
+                    description: event.eventType || event.statusCategory || 'Unknown'
+                };
+
+                // Ensure event is after minDate (used to prevent data from reused tracking numbers)
+                if (bloodhoundEvent.date < _options.minDate) {
+                    return;
+                }
+
+                if (DELIVERED_STATUS_CATEGORIES.includes(event.statusCategory)) {
+                    results.deliveredAt = bloodhoundEvent.date;
+                }
+
+                if (SHIPPED_STATUS_CATEGORIES.includes(event.statusCategory)) {
+                    results.shippedAt = bloodhoundEvent.date;
+                }
+
+                results.events.push(bloodhoundEvent);
             });
 
-            // Get unique array of locations
-            const locations = Array.from(new Set(trackingEvents.map(event => event.location)));
+            // Add details to the most recent event
+            if (results.events[0] && trackingData.statusSummary) {
+                results.events[0].details = trackingData.statusSummary;
+            }
 
-            // Lookup each location
-            async.mapLimit(locations, 10, (location, callback) => {
-                geography.parseLocation(location, options, (err, address) => {
-                    if (err || !address) {
-                        return callback(err, address);
-                    }
+            // Fallback: use top-level statusCategory if per-event statusCategory was missing
+            if (!results.deliveredAt && DELIVERED_STATUS_CATEGORIES.includes(trackingData.statusCategory) && results.events.length) {
+                results.deliveredAt = results.events[0].date;
+            }
 
-                    address.location = location;
+            if (!results.shippedAt && SHIPPED_STATUS_CATEGORIES.includes(trackingData.statusCategory) && results.events.length) {
+                results.shippedAt = results.events[0].date;
+            }
 
-                    callback(null, address);
-                });
-            }, (err, addresses) => {
-                if (err) {
-                    return callback(err);
-                }
+            // Add url to carrier tracking page
+            results.url = `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${encodeURIComponent(trackingNumber)}`;
 
-                trackingEvents.forEach(event => {
-                    const address = addresses.find(a => a && a.location === event.location);
-                    let timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (!results.shippedAt && results.deliveredAt) {
+                results.shippedAt = results.deliveredAt;
+            }
 
-                    if (address && address.timezone) {
-                        timezone = address.timezone;
-                    }
-
-                    // Parse the timestamp - USPS API returns ISO format like "2025-07-28T12:00:00Z"
-                    const eventDate = moment.tz(event.eventTimestamp, timezone).toDate();
-
-                    const bloodhoundEvent = {
-                        address: event.address,
-                        date: eventDate,
-                        description: event.eventType || event.statusCategory || 'Unknown'
-                    };
-
-                    // Ensure event is after minDate (used to prevent data from reused tracking numbers)
-                    if (bloodhoundEvent.date < _options.minDate) {
-                        return;
-                    }
-
-                    if (DELIVERED_STATUS_CATEGORIES.includes(event.statusCategory)) {
-                        results.deliveredAt = bloodhoundEvent.date;
-                    }
-
-                    if (SHIPPED_STATUS_CATEGORIES.includes(event.statusCategory)) {
-                        results.shippedAt = bloodhoundEvent.date;
-                    }
-
-                    // Use the city and state from the parsed address (for scenarios where the city includes the state like "New York, NY")
-                    if (address) {
-                        if (address.city) {
-                            bloodhoundEvent.address.city = address.city;
-                        }
-
-                        if (address.state) {
-                            bloodhoundEvent.address.state = address.state;
-                        }
-                    }
-
-                    results.events.push(bloodhoundEvent);
-                });
-
-                // Add details to the most recent event
-                if (results.events[0] && trackingData.statusSummary) {
-                    results.events[0].details = trackingData.statusSummary;
-                }
-
-                // Fallback: use top-level statusCategory if per-event statusCategory was missing
-                if (!results.deliveredAt && DELIVERED_STATUS_CATEGORIES.includes(trackingData.statusCategory) && results.events.length) {
-                    results.deliveredAt = results.events[0].date;
-                }
-
-                if (!results.shippedAt && SHIPPED_STATUS_CATEGORIES.includes(trackingData.statusCategory) && results.events.length) {
-                    results.shippedAt = results.events[0].date;
-                }
-
-                // Add url to carrier tracking page
-                results.url = `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${encodeURIComponent(trackingNumber)}`;
-
-                if (!results.shippedAt && results.deliveredAt) {
-                    results.shippedAt = results.deliveredAt;
-                }
-
-                callback(null, results);
-            });
+            callback(null, results);
         });
     };
 }

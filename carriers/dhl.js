@@ -10,7 +10,6 @@ const DELIVERED_TRACKING_DESCRIPTIONS = ['DELIVERED'];
 // These tracking descriptions should indicate the shipment was shipped (shows movement beyond a shipping label being created)
 const SHIPPED_TRACKING_DESCRIPTIONS = ['ARRIVAL DESTINATION DHL ECOMMERCE FACILITY', 'DEPARTURE ORIGIN DHL ECOMMERCE FACILITY', 'ARRIVED USPS SORT FACILITY', 'ARRIVAL AT POST OFFICE', 'OUT FOR DELIVERY', 'PACKAGE RECEIVED AT DHL ECOMMERCE DISTRIBUTION CENTER', 'PROCESSED THROUGH SORT FACILITY', 'PROCESSED THROUGH USPS SORT FACILITY', 'TENDERED TO DELIVERY SERVICE PROVIDER'];
 
-const geography = require('../util/geography');
 
 function DHL(options) {
     const dhlEcommerceSolutions = new DhlEcommerceSolutions(options && options.dhlEcommerceSolutions);
@@ -105,87 +104,64 @@ function DHL(options) {
                 // Used when there is no address data present
                 const previousAddress = shipment.origin?.address;
 
-                // Set address and locationString of each event
+                // Fall back to the shipment's origin when an event carries no address
                 events.forEach(event => {
                     if (!event.location?.address) {
                         event.location = event.location || {};
                         event.location.address = previousAddress;
                     }
-                    event.locationString = `${event.location.address?.addressLocality} ${event.location.address?.postalCode} ${event.location.address?.countryCode}`.trim();
                 });
 
-                // Get unique array of locations (remove falsy values)
-                const locations = Array.from(new Set(events.map(event => event.locationString))).filter(l => l);
+                events.forEach(event => {
+                    // DHL's UTAPI timestamps carry no offset, so they're interpreted in the
+                    // caller's configured timezone. Without geocoding we can't know the scan's
+                    // own zone, so a scan elsewhere is off by the difference between them.
+                    const timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-                // Lookup each location
-                async.mapLimit(locations, 10, (location, callback) => {
-                    geography.parseLocation(location, options, (err, address) => {
-                        if (err || !address) {
-                            return callback(err, address);
-                        }
+                    const _event = {
+                        address: {
+                            city: event.location.address?.addressLocality,
+                            country: event.location.address?.countryCode,
+                            // DHL's UTAPI has no state field, and it used to come from the
+                            // geocoder. It is undefined now rather than guessed.
+                            state: undefined,
+                            zip: event.location.address?.postalCode
+                        },
+                        date: moment.tz(event.timestamp, 'YYYY-MM-DDTHH:mm:ss', timezone).toDate(),
+                        description: event.description
+                    };
 
-                        address.location = location;
-
-                        callback(null, address);
-                    });
-                }, (err, addresses) => {
-                    if (err) {
-                        return callback(err);
+                    // Ensure event is after minDate (used to prevent data from reused tracking numbers)
+                    if (_event.date < _options.minDate) {
+                        return;
                     }
 
-                    events.forEach(event => {
-                        const address = addresses.find(a => a && a.location === event.locationString);
-
-                        // Use the geolocated timezone, or the configured/local default
-                        let timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-                        if (address?.timezone) {
-                            timezone = address.timezone;
-                        }
-
-                        const _event = {
-                            address: {
-                                city: address?.city,
-                                country: event.location.address?.countryCode,
-                                state: address?.state,
-                                zip: event.location.address?.postalCode
-                            },
-                            date: moment.tz(event.timestamp, 'YYYY-MM-DDTHH:mm:ss', timezone).toDate(),
-                            description: event.description
-                        };
-
-                        // Ensure event is after minDate (used to prevent data from reused tracking numbers)
-                        if (_event.date < _options.minDate) {
-                            return;
-                        }
-
-                        if (event.remark) {
-                            _event.details = event.remark;
-                        }
-
-                        if (!results.deliveredAt && _event.description && DELIVERED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
-                            results.deliveredAt = _event.date;
-                        }
-
-                        if (!results.shippedAt && _event.description && SHIPPED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
-                            results.shippedAt = _event.date;
-                        }
-
-                        results.events.push(_event);
-                    });
-
-                    // Add URL to carrier tracking page
-                    results.url = `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${encodeURIComponent(trackingNumber)}&submit=1`;
-
-                    // Reverse results again to get events in order Most Recent - Least Recent
-                    results.events.reverse();
-
-                    if (!results.shippedAt && results.deliveredAt) {
-                        results.shippedAt = results.deliveredAt;
+                    if (event.remark) {
+                        _event.details = event.remark;
                     }
 
-                    callback(null, results);
+                    if (!results.deliveredAt && _event.description && DELIVERED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
+                        results.deliveredAt = _event.date;
+                    }
+
+                    if (!results.shippedAt && _event.description && SHIPPED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
+                        results.shippedAt = _event.date;
+                    }
+
+                    results.events.push(_event);
                 });
+
+                // Add URL to carrier tracking page
+                results.url = `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${encodeURIComponent(trackingNumber)}&submit=1`;
+
+                // Reverse results again to get events in order Most Recent - Least Recent
+                results.events.reverse();
+
+                if (!results.shippedAt && results.deliveredAt) {
+                    results.shippedAt = results.deliveredAt;
+                }
+
+                callback(null, results);
             });
         };
 

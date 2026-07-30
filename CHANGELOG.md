@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - OnTrac: recognize the `D` + 14 digits tracking number format (e.g. `D10000000000001`) in `isTrackingNumberValid()`, so `guessCarrier()` resolves it to OnTrac
 
+### Changed
+- **BREAKING:** DHL and USPS event timestamps are now interpreted in `defaultTimezone` (falling back to the host machine's timezone) instead of the timezone geocoded from the event's location. A scan in a different timezone than `defaultTimezone` will be off by the difference between them, which can move a date across midnight. Set `defaultTimezone` explicitly
+- **BREAKING:** DHL `events[].address.city` now comes from the UTAPI's `addressLocality` rather than the geocoder, and `events[].address.state` is `undefined` — the UTAPI has no state field, so it was previously only available via geocoding
+- **BREAKING:** USPS `events[].address.city` and `.state` are no longer corrected by the geocoder, so they are returned exactly as USPS supplies them
+
+### Removed
+- **BREAKING:** removed geocoding. `util/geography.js` is gone, along with the `geocoder` and `pettyCache` options and the `node-geocoder`, `petty-cache`, `tz-lookup` and `us-states-normalize` dependencies. `GOOGLE_API_KEY` is no longer read
+
 ### Fixed
 - OnTrac: `shippedAt` is no longer set from an `EXRL` scan. OnTrac reports `EXRL` as "Not Yet Received" with no location, meaning the label exists but the carrier does not have the package yet, so `shippedAt` now comes from the first `ORIG` scan. Affected packages will report a later `shippedAt` than before
 - UPS: `gmtDate`/`gmtTime` are already UTC, so appending `gmtOffset` shifted every event timestamp a second time. Event dates, `shippedAt` and `deliveredAt` for non-UTC facilities were offset-hours too late

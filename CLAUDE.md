@@ -26,7 +26,7 @@ There is no explicit lint command, but the project uses ESLint with configuratio
 - `index.js`: Main entry point that instantiates carrier classes and provides the unified `track()` and `guessCarrier()` methods
 - `carriers/`: Individual carrier implementations (amazon.js, dhl.js, fedEx.js, ups.js, usps.js, pitneyBowes.js, dhlEcommerceSolutions.js)
 - `util/`: Utility modules for shared functionality
-  - `geography.js`: Handles geocoding and timezone lookups for proper timestamp parsing
+  - `checkDigit.js`: Validation utilities for tracking numbers
   - `checkDigit.js`: Validation utilities for tracking numbers
 
 ### Key Design Patterns
@@ -35,11 +35,9 @@ There is no explicit lint command, but the project uses ESLint with configuratio
    - `isTrackingNumberValid()`: Validates tracking number format
    - `track()`: Retrieves tracking data and returns standardized format
 
-2. **Timestamp Handling**: The system geocodes event locations to determine proper timezones when carriers don't provide UTC offsets. This is a critical feature that differentiates Bloodhound.
+2. **Timestamp Handling**: Carriers that supply a UTC offset are parsed directly. Carriers that supply a bare local timestamp (DHL and USPS) are interpreted in the `defaultTimezone` option, falling back to the host machine's timezone. Bloodhound does not geocode.
 
-3. **Caching Strategy**: 
-   - In-memory caching via `memory-cache` for geocoding results
-   - Optional Redis caching via `petty-cache` configuration
+3. **Caching Strategy**: In-memory caching via `memory-cache` for carrier access tokens.
 
 4. **Response Format**: All carriers return data in this structure:
    ```json

@@ -1,5 +1,3 @@
-const NodeGeocoder = require('node-geocoder');
-
 const Amazon = require('./carriers/amazon');
 const DHL = require('./carriers/dhl');
 const FedEx = require('./carriers/fedEx');
@@ -10,39 +8,10 @@ const XPO = require('./carriers/xpo');
 const UPS = require('./carriers/ups');
 const USPS = require('./carriers/usps');
 
-const geography = require('./util/geography');
-
 function Bloodhound(options) {
     // Options are optional
     if (!options) {
         options = {};
-    }
-
-    // Optionally specify geocoder options
-    if (options.geocoder) {
-        geography.geocoder = NodeGeocoder(options.geocoder);
-    }
-
-    if (options.pettyCache) {
-        // Allow DHL to cache geocode results in Redis (via petty-cache)
-        if (options.dhl) {
-            options.dhl.pettyCache = options.pettyCache;
-        }
-
-        // Allow PitneyBowes to cache geocode results in Redis (via petty-cache)
-        if (options.pitneyBowes) {
-            options.pitneyBowes.pettyCache = options.pettyCache;
-        }
-
-        // Allow UPS to cache geocode results in Redis (via petty-cache)
-        if (options.ups) {
-            options.ups.pettyCache = options.pettyCache;
-        }
-
-        // Allow USPS to cache geocode results in Redis (via petty-cache)
-        if (options.usps) {
-            options.usps.pettyCache = options.pettyCache;
-        }
     }
 
     // Propagate defaultTimezone to carriers that need it

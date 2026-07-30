@@ -7,7 +7,6 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     env:
       NODE_VERSION: 24.11.0
-      REDIS_VERSION: 6.0.14
     runs-on: ubuntu-latest
 
     steps:
@@ -31,10 +30,6 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Setup Redis ${{ env.REDIS_VERSION }}
-      uses: supercharge/redis-github-action@v2
-      with:
-        redis-version: ${{ env.REDIS_VERSION }}
 
     - name: Test
       env:
@@ -45,7 +40,6 @@ jobs:
         FEDEX_API_KEY: ${{ secrets.FEDEX_API_KEY }}
         FEDEX_SECRET_KEY: ${{ secrets.FEDEX_SECRET_KEY }}
         FEDEX_URL: ${{ secrets.FEDEX_URL }}
-        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         PITNEY_BOWES_API_KEY: ${{ secrets.PITNEY_BOWES_API_KEY }}
         PITNEY_BOWES_API_SECRET: ${{ secrets.PITNEY_BOWES_API_SECRET }}
         UPS_CLIENT_ID: ${{ secrets.UPS_CLIENT_ID }}
