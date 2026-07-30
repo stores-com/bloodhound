@@ -1,8 +1,6 @@
 const assert = require('node:assert');
 const test = require('node:test');
 
-const nock = require('nock');
-
 const Bloodhound = require('../../index');
 const UPS = require('../../carriers/ups');
 
@@ -54,18 +52,15 @@ test('UPS', async (t) => {
 
     await t.test('ups.track', async (t) => {
         await t.test('should return tracking data', async () => {
-            nock('https://wwwcie.ups.com')
-                .post('/security/v1/oauth/token')
-                .reply(200, {
-                    access_token: 'mock-token',
-                    expires_in: 3600,
-                    token_type: 'Bearer'
-                });
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/security/v1/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
 
-            nock('https://wwwcie.ups.com')
-                .get('/api/track/v1/details/1Z5338FF0107231059')
-                .query(true)
-                .reply(200, {
+                return Promise.resolve(new Response(JSON.stringify({
                     trackResponse: {
                         shipment: [{
                             inquiryNumber: '1Z5338FF0107231059',
@@ -104,7 +99,11 @@ test('UPS', async (t) => {
                             }]
                         }]
                     }
-                });
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
 
             const bloodhound = new Bloodhound({
                 ups: {
@@ -136,18 +135,15 @@ test('UPS', async (t) => {
             //
             // Bug 2 — State field: the UPS API returns state in `stateProvince`, not `state`.
             // Reading `address?.state` always produced undefined.
-            nock('https://wwwcie.ups.com')
-                .post('/security/v1/oauth/token')
-                .reply(200, {
-                    access_token: 'mock-token',
-                    expires_in: 3600,
-                    token_type: 'Bearer'
-                });
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/security/v1/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
 
-            nock('https://wwwcie.ups.com')
-                .get('/api/track/v1/details/1Z6V86420323794365')
-                .query(true)
-                .reply(200, {
+                return Promise.resolve(new Response(JSON.stringify({
                     trackResponse: {
                         shipment: [{
                             inquiryNumber: '1Z6V86420323794365',
@@ -188,7 +184,11 @@ test('UPS', async (t) => {
                             }]
                         }]
                     }
-                });
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
 
             const bloodhound = new Bloodhound({
                 ups: {
@@ -217,6 +217,308 @@ test('UPS', async (t) => {
             assert.strictEqual(actual.events[2].date.toISOString(), '2026-07-15T03:52:47.000Z');
             assert.strictEqual(actual.events[2].address.state, 'PA');
             assert.strictEqual(actual.shippedAt.toISOString(), '2026-07-15T03:52:47.000Z');
+        });
+
+        await t.test('should not apply gmtOffset for any offset UPS returns', async () => {
+            // Captured from 1Z999AA10123456784, UPS's own published sample tracking number,
+            // so it contains no customer data. Seven of its seventeen activities, each
+            // verbatim, chosen to cover every distinct gmtOffset in the response
+            // (-07:00, -06:00, -05:00, -04:00 and +01:00), all four status types
+            // (D, I, M, X) and both activities that carry no city.
+            //
+            // The +01:00 activity matters most: every fixture before this one used a
+            // negative offset, so nothing proved the sign was irrelevant. gmtDate and
+            // gmtTime are already UTC, so the expected instants below are simply
+            // gmtDate + gmtTime with gmtOffset ignored. Applying the offset — the bug
+            // fixed in #167 — moves every one of them.
+            const activity = [
+                {
+                    gmtDate: '20251205',
+                    gmtOffset: '-06:00',
+                    gmtTime: '16:29:38',
+                    location: {
+                        address: {
+                            city: 'LONGVIEW',
+                            countryCode: 'US',
+                            stateProvince: 'TX'
+                        }
+                    },
+                    status: {
+                        code: '9E',
+                        description: 'DELIVERED ',
+                        type: 'D'
+                    }
+                },
+                {
+                    gmtDate: '20251205',
+                    gmtOffset: '-06:00',
+                    gmtTime: '16:20:03',
+                    location: {
+                        address: {
+                            city: 'Longview',
+                            countryCode: 'US',
+                            stateProvince: 'TX'
+                        }
+                    },
+                    status: {
+                        code: 'OT',
+                        description: 'Out For Delivery Today',
+                        type: 'I'
+                    }
+                },
+                {
+                    gmtDate: '20251205',
+                    gmtOffset: '-06:00',
+                    gmtTime: '12:42:00',
+                    location: {
+                        address: {}
+                    },
+                    status: {
+                        code: '18',
+                        description: 'A late flight has caused a delay. Your package is scheduled to arrive today later than the communicated delivery time.',
+                        type: 'X'
+                    }
+                },
+                {
+                    gmtDate: '20251205',
+                    gmtOffset: '-05:00',
+                    gmtTime: '09:34:00',
+                    location: {
+                        address: {
+                            city: 'Louisville',
+                            countryCode: 'US',
+                            stateProvince: 'KY'
+                        }
+                    },
+                    status: {
+                        code: 'DP',
+                        description: 'Departed from Facility',
+                        type: 'I'
+                    }
+                },
+                {
+                    gmtDate: '20250820',
+                    gmtOffset: '-04:00',
+                    gmtTime: '19:35:41',
+                    location: {
+                        address: {
+                            city: 'Swainsboro',
+                            countryCode: 'US',
+                            stateProvince: 'GA'
+                        }
+                    },
+                    status: {
+                        code: 'ZO',
+                        description: 'The UPS Access Point\u2122 location has prepared the package for return to UPS or pickup by UPS.',
+                        type: 'X'
+                    }
+                },
+                {
+                    gmtDate: '20250820',
+                    gmtOffset: '-07:00',
+                    gmtTime: '13:14:28',
+                    location: {
+                        address: {
+                            city: 'Goodyear',
+                            countryCode: 'US',
+                            stateProvince: 'AZ'
+                        }
+                    },
+                    status: {
+                        code: 'OR',
+                        description: 'Arrived at Facility',
+                        type: 'I'
+                    }
+                },
+                {
+                    gmtDate: '20260216',
+                    gmtOffset: '+01:00',
+                    gmtTime: '14:50:07',
+                    location: {
+                        address: {
+                            countryCode: 'DE'
+                        }
+                    },
+                    status: {
+                        code: 'MP',
+                        description: 'Shipper created a label, UPS has not received the package yet. ',
+                        type: 'M'
+                    }
+                }
+            ];
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/security/v1/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({
+                    trackResponse: {
+                        shipment: [{
+                            inquiryNumber: '1Z999AA10123456784',
+                            package: [{
+                                activity,
+                                trackingNumber: '1Z999AA10123456784'
+                            }]
+                        }]
+                    }
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
+            });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('1Z999AA10123456784', 'ups', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert.deepStrictEqual(actual.events.map(event => event.date.toISOString()), [
+                '2025-12-05T16:29:38.000Z',
+                '2025-12-05T16:20:03.000Z',
+                '2025-12-05T12:42:00.000Z',
+                '2025-12-05T09:34:00.000Z',
+                '2025-08-20T19:35:41.000Z',
+                '2025-08-20T13:14:28.000Z',
+                '2026-02-16T14:50:07.000Z'
+            ]);
+
+            // The two activities with no location still produce an event.
+            assert.strictEqual(actual.events.length, 7);
+        });
+
+        await t.test('should return no events when UPS reports the tracking number is not found', async () => {
+            // Captured verbatim. This is the most common outcome in our own data by a wide
+            // margin, and nothing tested it: UPS answers 200 with a warnings array and no
+            // `package` key at all, so every optional chain in the carrier has to hold.
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/security/v1/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({
+                    trackResponse: {
+                        shipment: [{
+                            inquiryNumber: '1ZW1R264YW05926068',
+                            warnings: [{
+                                code: 'TW0001',
+                                message: 'Tracking Information Not Found'
+                            }]
+                        }]
+                    }
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
+            });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('1ZW1R264YW05926068', 'ups', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert.strictEqual(actual.carrier, 'UPS');
+            assert.strictEqual(actual.events.length, 0);
+            assert.strictEqual(actual.deliveredAt, undefined);
+            assert.strictEqual(actual.shippedAt, undefined);
+        });
+
+        await t.test('should return no events when UPS omits the inquiry number entirely', async () => {
+            // Same warnings shape, but with no `inquiryNumber` either. UPS returns this for
+            // input it cannot parse as a tracking number at all.
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/security/v1/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({
+                    trackResponse: {
+                        shipment: [{
+                            warnings: [{
+                                code: 'TW0001',
+                                message: 'Tracking Information Not Found'
+                            }]
+                        }]
+                    }
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
+            });
+
+            const actual = await new Promise((resolve, reject) => {
+                bloodhound.track('1Z5338FF0107231059', 'ups', (err, data) => err ? reject(err) : resolve(data));
+            });
+
+            assert.strictEqual(actual.carrier, 'UPS');
+            assert.strictEqual(actual.events.length, 0);
+        });
+
+        await t.test('should return an error when UPS rejects the inquiry number', async () => {
+            // Captured verbatim: UPS answers 400 with its own error envelope rather than a
+            // warnings array. That has to surface as an error, not as an empty shipment.
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/security/v1/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({
+                    response: {
+                        errors: [{
+                            code: 'TV1002',
+                            message: 'Invalid inquiry number'
+                        }]
+                    }
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 400
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                ups: {
+                    client_id: 'test-client-id',
+                    client_secret: 'test-client-secret'
+                }
+            });
+
+            const args = await new Promise((resolve) => {
+                bloodhound.track('1Z5338FF0107231059', 'ups', (...args) => resolve(args));
+            });
+
+            assert.strictEqual(args[0].cause.status, 400);
+            assert.strictEqual(args[1], undefined);
         });
     });
 });

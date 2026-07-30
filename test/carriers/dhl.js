@@ -2,12 +2,8 @@ const assert = require('node:assert');
 const test = require('node:test');
 const util = require('node:util');
 
-const nock = require('nock');
-
 const Bloodhound = require('../../index');
 const DHL = require('../../carriers/dhl');
-
-nock.enableNetConnect();
 
 test('DHL', async (t) => {
     const validTrackingNumbers = [
@@ -42,28 +38,28 @@ test('DHL', async (t) => {
 
     t.test('dhl.track', { timeout: 10000 }, async (t) => {
         t.test('should return a valid response with no errors', async () => {
-            nock('https://api-eu.dhl.com')
-                .get('/track/shipments')
-                .query({ trackingNumber: validTrackingNumbers[0] })
-                .reply(200, {
-                    shipments: [{
-                        id: '698E011D2920F49AA1243104',
-                        service: 'ecommerce',
-                        origin: {
-                            address: {
-                                addressLocality: 'CARROLLTON',
-                                countryCode: 'US',
-                                postalCode: '75010'
-                            }
-                        },
-                        status: {
-                            timestamp: '2026-02-12T10:34:42',
-                            statusCode: 'pre-transit',
-                            description: 'LABEL CREATED'
-                        },
-                        events: []
-                    }]
-                });
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                shipments: [{
+                    id: '698E011D2920F49AA1243104',
+                    service: 'ecommerce',
+                    origin: {
+                        address: {
+                            addressLocality: 'CARROLLTON',
+                            countryCode: 'US',
+                            postalCode: '75010'
+                        }
+                    },
+                    status: {
+                        timestamp: '2026-02-12T10:34:42',
+                        statusCode: 'pre-transit',
+                        description: 'LABEL CREATED'
+                    },
+                    events: []
+                }]
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 200
+            })));
 
             const bloodhound = new Bloodhound({
                 dhl: {
@@ -79,28 +75,28 @@ test('DHL', async (t) => {
         });
 
         t.test('should fall through to DHL UTAPI and return a response with no errors when DHL eCommerce Solutions fails', async () => {
-            nock('https://api-eu.dhl.com')
-                .get('/track/shipments')
-                .query({ trackingNumber: validTrackingNumbers[0] })
-                .reply(200, {
-                    shipments: [{
-                        id: '698E011D2920F49AA1243104',
-                        service: 'ecommerce',
-                        origin: {
-                            address: {
-                                addressLocality: 'CARROLLTON',
-                                countryCode: 'US',
-                                postalCode: '75010'
-                            }
-                        },
-                        status: {
-                            timestamp: '2026-02-12T10:34:42',
-                            statusCode: 'pre-transit',
-                            description: 'LABEL CREATED'
-                        },
-                        events: []
-                    }]
-                });
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                shipments: [{
+                    id: '698E011D2920F49AA1243104',
+                    service: 'ecommerce',
+                    origin: {
+                        address: {
+                            addressLocality: 'CARROLLTON',
+                            countryCode: 'US',
+                            postalCode: '75010'
+                        }
+                    },
+                    status: {
+                        timestamp: '2026-02-12T10:34:42',
+                        statusCode: 'pre-transit',
+                        description: 'LABEL CREATED'
+                    },
+                    events: []
+                }]
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 200
+            })));
 
             const bloodhound = new Bloodhound({
                 dhl: {
@@ -121,11 +117,10 @@ test('DHL', async (t) => {
         });
 
         t.test('should try DHL eCommerce solutions first', async () => {
-            nock('https://api-eu.dhl.com')
-                .get('/track/shipments')
-                .query({ trackingNumber: validTrackingNumbers[0] })
-                .times(5)
-                .reply(401, { status: 401, detail: 'Unauthorized' });
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({ status: 401, detail: 'Unauthorized' }), {
+                headers: { 'content-type': 'application/json' },
+                status: 401
+            })));
 
             const bloodhound = new Bloodhound({
                 dhlEcommerceSolutions: {
@@ -148,40 +143,40 @@ test('DHL', async (t) => {
         });
 
         t.test('should set shippedAt for "PROCESSED THROUGH USPS SORT FACILITY" events from UTAPI', async () => {
-            nock('https://api-eu.dhl.com')
-                .get('/track/shipments')
-                .query({ trackingNumber: validTrackingNumbers[0] })
-                .reply(200, {
-                    shipments: [{
-                        id: '698E011D2920F49AA1243104',
-                        service: 'ecommerce',
-                        origin: {
-                            address: {
-                                addressLocality: 'CARROLLTON',
-                                countryCode: 'US',
-                                postalCode: '75010'
-                            }
-                        },
-                        status: {
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                shipments: [{
+                    id: '698E011D2920F49AA1243104',
+                    service: 'ecommerce',
+                    origin: {
+                        address: {
+                            addressLocality: 'CARROLLTON',
+                            countryCode: 'US',
+                            postalCode: '75010'
+                        }
+                    },
+                    status: {
+                        timestamp: '2026-04-28T04:00:00',
+                        statusCode: 'transit',
+                        description: 'PROCESSED THROUGH USPS SORT FACILITY'
+                    },
+                    events: [
+                        {
                             timestamp: '2026-04-28T04:00:00',
-                            statusCode: 'transit',
-                            description: 'PROCESSED THROUGH USPS SORT FACILITY'
-                        },
-                        events: [
-                            {
-                                timestamp: '2026-04-28T04:00:00',
-                                description: 'PROCESSED THROUGH USPS SORT FACILITY',
-                                location: {
-                                    address: {
-                                        addressLocality: 'FOREST PARK',
-                                        countryCode: 'US',
-                                        postalCode: '60130'
-                                    }
+                            description: 'PROCESSED THROUGH USPS SORT FACILITY',
+                            location: {
+                                address: {
+                                    addressLocality: 'FOREST PARK',
+                                    countryCode: 'US',
+                                    postalCode: '60130'
                                 }
                             }
-                        ]
-                    }]
-                });
+                        }
+                    ]
+                }]
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 200
+            })));
 
             const bloodhound = new Bloodhound({
                 dhl: {
@@ -208,29 +203,29 @@ test('DHL', async (t) => {
         });
 
         t.test('should return estimated delivery date for a real DHL tracking number', async () => {
-            nock('https://api-eu.dhl.com')
-                .get('/track/shipments')
-                .query({ trackingNumber: validTrackingNumbers[0] })
-                .reply(200, {
-                    shipments: [{
-                        id: '698E011D2920F49AA1243104',
-                        service: 'ecommerce',
-                        origin: {
-                            address: {
-                                addressLocality: 'CARROLLTON',
-                                countryCode: 'US',
-                                postalCode: '75010'
-                            }
-                        },
-                        status: {
-                            timestamp: '2026-02-12T10:34:42',
-                            statusCode: 'transit',
-                            description: 'IN TRANSIT'
-                        },
-                        estimatedTimeOfDelivery: '2026-02-18',
-                        events: []
-                    }]
-                });
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                shipments: [{
+                    id: '698E011D2920F49AA1243104',
+                    service: 'ecommerce',
+                    origin: {
+                        address: {
+                            addressLocality: 'CARROLLTON',
+                            countryCode: 'US',
+                            postalCode: '75010'
+                        }
+                    },
+                    status: {
+                        timestamp: '2026-02-12T10:34:42',
+                        statusCode: 'transit',
+                        description: 'IN TRANSIT'
+                    },
+                    estimatedTimeOfDelivery: '2026-02-18',
+                    events: []
+                }]
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 200
+            })));
 
             const bloodhound = new Bloodhound({
                 dhl: {

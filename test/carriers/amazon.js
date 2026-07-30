@@ -2,8 +2,6 @@ const assert = require('node:assert');
 const test = require('node:test');
 const util = require('node:util');
 
-const nock = require('nock');
-
 const Bloodhound = require('../../index');
 const Amazon = require('../../carriers/amazon');
 
@@ -132,45 +130,46 @@ test('Amazon', { timeout: 30000 }, async (t) => {
         });
 
         t.test('should include location information when available', async () => {
-            nock('https://track.amazon.com')
-                .get('/api/tracker/TBA321677302718')
-                .reply(200, {
-                    progressTracker: JSON.stringify({
-                        summary: {
-                            metadata: {}
-                        }
-                    }),
-                    eventHistory: JSON.stringify({
-                        eventHistory: [
-                            {
-                                eventTime: '2025-06-20T10:30:00.000Z',
-                                eventCode: 'PickupDone',
-                                statusSummary: {
-                                    localisedStringId: 'swa_rex_detail_pickedUp'
-                                },
-                                location: {
-                                    city: 'Seattle',
-                                    stateProvince: 'WA',
-                                    countryCode: 'US',
-                                    postalCode: '98109'
-                                }
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                progressTracker: JSON.stringify({
+                    summary: {
+                        metadata: {}
+                    }
+                }),
+                eventHistory: JSON.stringify({
+                    eventHistory: [
+                        {
+                            eventTime: '2025-06-20T10:30:00.000Z',
+                            eventCode: 'PickupDone',
+                            statusSummary: {
+                                localisedStringId: 'swa_rex_detail_pickedUp'
                             },
-                            {
-                                eventTime: '2025-06-21T14:20:00.000Z',
-                                eventCode: 'InTransit',
-                                statusSummary: {
-                                    localisedStringId: 'swa_rex_intransit'
-                                },
-                                location: {
-                                    city: 'Portland',
-                                    stateProvince: 'OR',
-                                    countryCode: 'US',
-                                    postalCode: '97204'
-                                }
+                            location: {
+                                city: 'Seattle',
+                                stateProvince: 'WA',
+                                countryCode: 'US',
+                                postalCode: '98109'
                             }
-                        ]
-                    })
-                });
+                        },
+                        {
+                            eventTime: '2025-06-21T14:20:00.000Z',
+                            eventCode: 'InTransit',
+                            statusSummary: {
+                                localisedStringId: 'swa_rex_intransit'
+                            },
+                            location: {
+                                city: 'Portland',
+                                stateProvince: 'OR',
+                                countryCode: 'US',
+                                postalCode: '97204'
+                            }
+                        }
+                    ]
+                })
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 200
+            })));
 
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('TBA321677302718', 'amazon', (err, data) => err ? reject(err) : resolve(data));
@@ -199,18 +198,19 @@ test('Amazon', { timeout: 30000 }, async (t) => {
         });
 
         t.test('should return raw data in results', async () => {
-            nock('https://track.amazon.com')
-                .get('/api/tracker/TBA321677302718')
-                .reply(200, {
-                    progressTracker: JSON.stringify({
-                        summary: {
-                            metadata: {}
-                        }
-                    }),
-                    eventHistory: JSON.stringify({
-                        eventHistory: []
-                    })
-                });
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                progressTracker: JSON.stringify({
+                    summary: {
+                        metadata: {}
+                    }
+                }),
+                eventHistory: JSON.stringify({
+                    eventHistory: []
+                })
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 200
+            })));
 
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('TBA321677302718', 'amazon', (err, data) => err ? reject(err) : resolve(data));
@@ -226,40 +226,41 @@ test('Amazon', { timeout: 30000 }, async (t) => {
         });
 
         t.test('should sort events chronologically', async () => {
-            nock('https://track.amazon.com')
-                .get('/api/tracker/TBA321677302718')
-                .reply(200, {
-                    progressTracker: JSON.stringify({
-                        summary: {
-                            metadata: {}
-                        }
-                    }),
-                    eventHistory: JSON.stringify({
-                        eventHistory: [
-                            {
-                                eventTime: '2025-06-21T14:20:00.000Z',
-                                eventCode: 'InTransit',
-                                statusSummary: {
-                                    localisedStringId: 'swa_rex_intransit'
-                                }
-                            },
-                            {
-                                eventTime: '2025-06-22T18:00:00.000Z',
-                                eventCode: 'Delivered',
-                                statusSummary: {
-                                    localisedStringId: 'swa_rex_delivered'
-                                }
-                            },
-                            {
-                                eventTime: '2025-06-20T10:30:00.000Z',
-                                eventCode: 'PickupDone',
-                                statusSummary: {
-                                    localisedStringId: 'swa_rex_detail_pickedUp'
-                                }
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                progressTracker: JSON.stringify({
+                    summary: {
+                        metadata: {}
+                    }
+                }),
+                eventHistory: JSON.stringify({
+                    eventHistory: [
+                        {
+                            eventTime: '2025-06-21T14:20:00.000Z',
+                            eventCode: 'InTransit',
+                            statusSummary: {
+                                localisedStringId: 'swa_rex_intransit'
                             }
-                        ]
-                    })
-                });
+                        },
+                        {
+                            eventTime: '2025-06-22T18:00:00.000Z',
+                            eventCode: 'Delivered',
+                            statusSummary: {
+                                localisedStringId: 'swa_rex_delivered'
+                            }
+                        },
+                        {
+                            eventTime: '2025-06-20T10:30:00.000Z',
+                            eventCode: 'PickupDone',
+                            statusSummary: {
+                                localisedStringId: 'swa_rex_detail_pickedUp'
+                            }
+                        }
+                    ]
+                })
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 200
+            })));
 
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('TBA321677302718', 'amazon', (err, data) => err ? reject(err) : resolve(data));
@@ -275,20 +276,21 @@ test('Amazon', { timeout: 30000 }, async (t) => {
         });
 
         t.test('should return estimatedDeliveryDate for a real Amazon tracking number', async () => {
-            nock('https://track.amazon.com')
-                .get('/api/tracker/TBA322242594054')
-                .reply(200, {
-                    progressTracker: JSON.stringify({
-                        summary: {
-                            metadata: {
-                                expectedDeliveryDate: '2025-06-23T08:00:00.000Z'
-                            }
+            t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                progressTracker: JSON.stringify({
+                    summary: {
+                        metadata: {
+                            expectedDeliveryDate: '2025-06-23T08:00:00.000Z'
                         }
-                    }),
-                    eventHistory: JSON.stringify({
-                        eventHistory: []
-                    })
-                });
+                    }
+                }),
+                eventHistory: JSON.stringify({
+                    eventHistory: []
+                })
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 200
+            })));
 
             const actual = await new Promise((resolve, reject) => {
                 bloodhound.track('TBA322242594054', 'amazon', (err, data) => err ? reject(err) : resolve(data));

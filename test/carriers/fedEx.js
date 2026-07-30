@@ -2,8 +2,6 @@ const assert = require('node:assert');
 const test = require('node:test');
 const util = require('node:util');
 
-const nock = require('nock');
-
 const Bloodhound = require('../../index');
 const FedEx = require('../../carriers/fedEx');
 
@@ -2152,19 +2150,17 @@ test('FedEx', async (t) => {
             });
         });
 
-        t.test('FedEx estimatedDeliveryDate', async (t) => {
-            t.test('should handle estimatedDeliveryTimeWindow if present', async () => {
-                nock('https://apis.fedex.com')
-                    .post('/oauth/token')
-                    .reply(200, {
-                        access_token: 'fake-token-123',
-                        token_type: 'bearer',
-                        expires_in: 3600
-                    });
+        await t.test('FedEx estimatedDeliveryDate', async (t) => {
+            await t.test('should handle estimatedDeliveryTimeWindow if present', async () => {
+                t.mock.method(globalThis, 'fetch', (url) => {
+                    if (url.endsWith('/oauth/token')) {
+                        return Promise.resolve(new Response(JSON.stringify({ access_token: 'fake-token-123', expires_in: 3600, token_type: 'bearer' }), {
+                            headers: { 'content-type': 'application/json' },
+                            status: 200
+                        }));
+                    }
 
-                nock('https://apis.fedex.com')
-                    .post('/track/v1/trackingnumbers')
-                    .reply(200, {
+                    return Promise.resolve(new Response(JSON.stringify({
                         output: {
                             completeTrackResults: [{
                                 trackResults: [{
@@ -2177,7 +2173,11 @@ test('FedEx', async (t) => {
                                 }]
                             }]
                         }
-                    });
+                    }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                });
 
                 const bloodhound = new Bloodhound({
                     fedEx: {
@@ -2210,24 +2210,26 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('should handle missing estimatedDeliveryTimeWindow gracefully', async () => {
-                nock('https://apis.fedex.com')
-                    .post('/oauth/token')
-                    .reply(200, {
-                        access_token: 'fake-token-123',
-                        token_type: 'bearer',
-                        expires_in: 3600
-                    });
+            await t.test('should handle missing estimatedDeliveryTimeWindow gracefully', async () => {
+                t.mock.method(globalThis, 'fetch', (url) => {
+                    if (url.endsWith('/oauth/token')) {
+                        return Promise.resolve(new Response(JSON.stringify({ access_token: 'fake-token-123', expires_in: 3600, token_type: 'bearer' }), {
+                            headers: { 'content-type': 'application/json' },
+                            status: 200
+                        }));
+                    }
 
-                nock('https://apis.fedex.com')
-                    .post('/track/v1/trackingnumbers')
-                    .reply(200, {
+                    return Promise.resolve(new Response(JSON.stringify({
                         output: {
                             completeTrackResults: [{
                                 trackResults: [{}]
                             }]
                         }
-                    });
+                    }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                });
 
                 const bloodhound = new Bloodhound({
                     fedEx: {
