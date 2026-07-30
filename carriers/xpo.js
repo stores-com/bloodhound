@@ -95,7 +95,11 @@ module.exports = function(options) {
 
             callback(null, results);
         } catch (err) {
-            if (err.message === '404 Not Found') {
+            // @stores.com/xpo raises @stores.com/http-error, whose message is
+            // `${status} ${statusText}` — a reason phrase the origin picks and nobody normalises —
+            // and which 1.2.0 replaces outright with the response body's errors[] text. The status
+            // on `cause` is the one part that can't change.
+            if (err.cause?.status === 404) {
                 return callback(null, results);
             }
 

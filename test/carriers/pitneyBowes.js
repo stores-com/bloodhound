@@ -227,6 +227,60 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
         assert.strictEqual(results.events.length, 0);
     });
 
+    await t.test('should return empty events for a 404 whose reason phrase is not "Not Found"', async (t) => {
+        // The test above passes only because HttpError's message is exactly "404 Not Found",
+        // and that message is `${status} ${statusText}` — a reason phrase the origin chooses
+        // and nobody normalises. The "invalid base URL" test above proves it varies: httpbin
+        // answers with "INTERNAL SERVER ERROR", so the same server on a 404 would produce
+        // "404 NOT FOUND" and a check matching the message would miss it.
+        //
+        // The body below also carries an errors[] array. That is inert today: pitney-bowes
+        // pins @stores.com/http-error ~1.0.0, which does not touch the message. The version
+        // bloodhound itself uses, 1.2.0, replaces the message with that errors[] text — so
+        // when pitney-bowes moves to it, the message check breaks a second way.
+        //
+        // The status on `cause` is unaffected by either.
+        const originalFetch = global.fetch;
+
+        t.after(() => { global.fetch = originalFetch; });
+
+        global.fetch = async (url, options) => {
+            if (typeof url === 'string' && url.includes('/oauth/token')) {
+                return new Response(JSON.stringify({
+                    access_token: 'mock_token',
+                    clientID: 'mock',
+                    expiresIn: '36000',
+                    issuedAt: Date.now().toString(),
+                    org: 'pitneybowes',
+                    tokenType: 'BearerToken'
+                }), { headers: { 'Content-Type': 'application/json' }, status: 200 });
+            }
+
+            if (typeof url === 'string' && url.includes('/v1/tracking/')) {
+                return new Response(JSON.stringify({
+                    errors: [{
+                        errorCode: 'PB-TRACKING-0001',
+                        message: 'Tracking information is not available for this parcel'
+                    }]
+                }), { headers: { 'Content-Type': 'application/json' }, status: 404, statusText: 'NOT FOUND' });
+            }
+
+            return originalFetch(url, options);
+        };
+
+        const bloodhound = new Bloodhound({
+            pitneyBowes: {
+                api_key: 'test',
+                api_secret: 'test'
+            }
+        });
+
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
+
+        assert.strictEqual(results.carrier, 'Pitney Bowes');
+        assert.strictEqual(results.events.length, 0);
+    });
+
     await t.test('should filter events before minDate', async (t) => {
         const originalFetch = mockFetch('4203300992612927005269000093974783');
         t.after(() => { global.fetch = originalFetch; });
