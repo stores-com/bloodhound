@@ -98,7 +98,12 @@ test('DHL eCommerce Solutions', async (t) => {
             assert.strictEqual(args[0], null);
             assert.strictEqual(args[1].carrier, 'DHL');
             assert.strictEqual(args[1].events.length, 0);
-            assert(fetchMock.mock.callCount() > 0);
+
+            // Asked DHL once. A 404 is a permanent answer for this tracking number, so the
+            // retry's errorFilter stops it from spending four more calls on an outcome that
+            // cannot change. Counted on the tracking URL specifically, because the access
+            // token fetch also goes through this mock.
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('/tracking/v4/package')).length, 1);
         });
 
         await t.test('should propagate a server error instead of reporting it as not found', async () => {
@@ -108,7 +113,7 @@ test('DHL eCommerce Solutions', async (t) => {
                 environment_url: 'https://api-sandbox.dhlecs.com'
             });
 
-            t.mock.method(globalThis, 'fetch', (url) => {
+            const fetchMock = t.mock.method(globalThis, 'fetch', (url) => {
                 if (url.includes('/auth/v4/accesstoken')) {
                     return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
                         headers: { 'content-type': 'application/json' },
@@ -125,6 +130,9 @@ test('DHL eCommerce Solutions', async (t) => {
 
             assert.strictEqual(args[0].cause.status, 500);
             assert.strictEqual(args[1], undefined);
+
+            // async.retry's default of 5 attempts, unchanged for a transient failure.
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('/tracking/v4/package')).length, 5);
         });
     });
 });

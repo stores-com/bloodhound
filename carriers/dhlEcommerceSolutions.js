@@ -104,7 +104,11 @@ function DhlEcommerceSolutions(options) {
         let body;
 
         try {
-            body = await async.retry(async () => await dhlEcommerceClient.getTrackingByTrackingId(trackingNumber));
+            // A 404 here is the expected not-found answer handled below, and any other 4xx is
+            // equally permanent, so neither is retried — retrying a tracking number DHL does not
+            // have is what earns the 429. A transport failure has no status to judge and stays
+            // retryable.
+            body = await async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, async () => await dhlEcommerceClient.getTrackingByTrackingId(trackingNumber));
         } catch (err) {
             // A tracking number DHL doesn't know yet isn't an error — leave body undefined
             // so the empty-results return below runs and carriers/dhl.js can fall through
