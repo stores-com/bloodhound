@@ -116,10 +116,20 @@ function mockFetch(trackingNumber) {
 }
 
 test('Pitney Bowes', { timeout: 30000 }, async (t) => {
-    await t.test('should return an error for invalid base URL', async () => {
+    await t.test('should return an error for a base URL that answers 500', async (t) => {
+        // Mocked rather than pointed at httpbin.org. pitney-bowes@1.0.0 defaults its own request
+        // timeout to 30000ms and this file sets the same 30000ms test timeout, so when the live
+        // service was slow the abort and the test timeout raced and the test lost, taking the rest
+        // of the file's subtests with it. The reason phrase is deliberately not the standard one:
+        // it is chosen by the origin, and carriers/pitneyBowes.js must not key off it.
+        const originalFetch = global.fetch;
+        t.after(() => { global.fetch = originalFetch; });
+
+        global.fetch = async () => new Response('', { status: 500, statusText: 'INTERNAL SERVER ERROR' });
+
         const bloodhound = new Bloodhound({
             pitneyBowes: {
-                baseUrl: 'https://httpbin.org/status/500#'
+                baseUrl: 'https://pitney-bowes.invalid'
             }
         });
 
@@ -154,6 +164,64 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
         assert.match(deliveredEvent.address.city, /spring branch/i);
         assert.strictEqual(deliveredEvent.address.state, 'TX');
         assert.strictEqual(deliveredEvent.address.zip, '78070');
+    });
+
+    await t.test('should not turn a malformed scan timestamp into a valid-looking date', async (t) => {
+        // A scan whose eventDate lost a digit. Parsed loosely, Moment ignores the format mismatch
+        // and reads '2026-03-3' as the 3rd — a real Date, 27 days before the scan actually
+        // happened, that lands in deliveredAt with nothing marking it as junk. Parsed strictly it
+        // is an Invalid Date, which a caller can at least see.
+        //
+        // Only one scan here so the event ordering cannot absorb the bad date.
+        const originalFetch = global.fetch;
+        t.after(() => { global.fetch = originalFetch; });
+
+        global.fetch = async (url) => {
+            if (typeof url === 'string' && url.includes('/oauth/token')) {
+                return new Response(JSON.stringify({ access_token: 'mock_token', expiresIn: '36000' }), {
+                    headers: { 'Content-Type': 'application/json' },
+                    status: 200
+                });
+            }
+
+            return new Response(JSON.stringify({
+                carrier: 'USPS',
+                packageCount: 1,
+                scanDetailsList: [
+                    {
+                        country: 'US',
+                        eventCity: 'SPRING BRANCH',
+                        eventDate: '2026-03-3',
+                        eventStateOrProvince: 'TX',
+                        eventTime: '10:45:00',
+                        packageStatus: 'Delivered',
+                        postalCode: '78070',
+                        scanDescription: 'Delivered, In/At Mailbox',
+                        scanType: '01',
+                        standardizedEventCode: 'DLD'
+                    }
+                ],
+                status: 'Delivered',
+                trackingNumber: '4203300992612927005269000093974783'
+            }), {
+                headers: { 'Content-Type': 'application/json' },
+                status: 200
+            });
+        };
+
+        const bloodhound = new Bloodhound({
+            defaultTimezone: 'America/Chicago',
+            pitneyBowes: {
+                api_key: 'test',
+                api_secret: 'test'
+            }
+        });
+
+        const results = await bloodhound.track('4203300992612927005269000093974783', 'pitney bowes');
+
+        assert.strictEqual(results.events.length, 1);
+        assert.ok(Number.isNaN(results.events[0].date.getTime()), `expected an Invalid Date, got ${String(results.events[0].date)}`);
+        assert.ok(Number.isNaN(results.deliveredAt.getTime()), 'a malformed scan must not produce a usable deliveredAt');
     });
 
     await t.test('should strip DISTRIBUTION CENTER from city names', async (t) => {

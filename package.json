@@ -15,6 +15,9 @@
         "@eslint/js": "*",
         "globals": "*"
     },
+    "engines": {
+        "node": ">=18"
+    },
     "homepage": "https://github.com/stores-com/bloodhound",
     "keywords": [
         "amazon",

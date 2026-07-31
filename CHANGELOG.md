@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.2] - 2026-07-31
+### Added
+- `engines` now declares `node >= 18`. Five carriers (`amazon`, `dhl`, `fedEx`, `gofo`, `onTrac`) call global `fetch` and `AbortSignal.timeout`, neither of which is available unflagged before Node 18, so a Node 16 consumer installed cleanly and then failed at request time with no warning from npm
+
+### Fixed
+- Pitney Bowes: parse a scan's `eventDate`/`eventTime` strictly when there is no `eventTimeOffset`. Moment was accepting input that did not match `YYYY-MM-DD HH:mm:ss` and filling in the rest, so a truncated `2026-03-3` became March 3rd — a real date 27 days off — and a missing `eventTime` became midnight. Those flowed into `events[].date`, `deliveredAt` and `shippedAt` indistinguishable from real scans. A malformed timestamp now yields an Invalid Date, which a caller can detect
+
 ## [4.0.1] - 2026-07-30
 ### Changed
 - Updated dhl-ecommerce-solutions to `~1.0.0`, which drops callback support. Nothing changes for Bloodhound consumers: `carriers/dhlEcommerceSolutions.js` has awaited its single call into that package since #181, and 1.0.0 keeps the same 10 second default timeout and the same `@stores.com/http-error` error shape, so the `err.cause.status` checks are unaffected. 1.0.0 also accepts a per-call `timeout` in a new second options argument, which Bloodhound does not pass
