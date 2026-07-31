@@ -13,7 +13,7 @@ test('XPO', async (t) => {
         }
     });
 
-    t.test('xpo.isTrackingNumberValid', { concurrency: true }, async (t) => {
+    await t.test('xpo.isTrackingNumberValid', { concurrency: true }, async (t) => {
         const xpo = new XPO();
 
         const validTrackingNumbers = [
@@ -35,7 +35,7 @@ test('XPO', async (t) => {
             '000000000'
         ];
 
-        t.test('should detect valid XPO PRO numbers', () => {
+        await t.test('should detect valid XPO PRO numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!xpo.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should be recognized as a valid XPO PRO number`);
@@ -43,7 +43,7 @@ test('XPO', async (t) => {
             });
         });
 
-        t.test('should not detect invalid XPO PRO numbers', () => {
+        await t.test('should not detect invalid XPO PRO numbers', () => {
             invalidTrackingNumbers.forEach(trackingNumber => {
                 if (xpo.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} should not be recognized as a valid XPO PRO number`);
@@ -52,8 +52,8 @@ test('XPO', async (t) => {
         });
     });
 
-    t.test('xpo.track', async (t) => {
-        t.test('should return tracking information for a valid PRO number', async () => {
+    await t.test('xpo.track', async (t) => {
+        await t.test('should return tracking information for a valid PRO number', async () => {
             const actual = await bloodhound.track('235825413', 'xpo');
 
             assert.strictEqual(actual.carrier, 'XPO');
@@ -61,26 +61,26 @@ test('XPO', async (t) => {
             assert(actual.url.includes('235825413'));
         });
 
-        t.test('should return empty events for invalid PRO number', async () => {
+        await t.test('should return empty events for invalid PRO number', async () => {
             const actual = await bloodhound.track('000000007', 'xpo');
 
             assert.strictEqual(actual.carrier, 'XPO');
             assert.strictEqual(actual.events.length, 0);
         });
 
-        t.test('should handle PRO numbers with dashes', async () => {
+        await t.test('should handle PRO numbers with dashes', async () => {
             const actual = await bloodhound.track('235-825-413', 'xpo');
 
             assert.strictEqual(actual.carrier, 'XPO');
         });
 
-        t.test('should handle PRO numbers with spaces', async () => {
+        await t.test('should handle PRO numbers with spaces', async () => {
             const actual = await bloodhound.track('235 825 413', 'xpo');
 
             assert.strictEqual(actual.carrier, 'XPO');
         });
 
-        t.test('should include location information when available', async () => {
+        await t.test('should include location information when available', async () => {
             const actual = await bloodhound.track('235825413', 'xpo');
 
             const eventsWithLocation = actual.events.filter(event =>
@@ -101,7 +101,7 @@ test('XPO', async (t) => {
             }
         });
 
-        t.test('should return raw data in results', async () => {
+        await t.test('should return raw data in results', async () => {
             const actual = await bloodhound.track('235825413', 'xpo');
 
             assert(Object.hasOwn(actual, 'raw'));
@@ -111,7 +111,7 @@ test('XPO', async (t) => {
             }
         });
 
-        t.test('should sort events chronologically', async () => {
+        await t.test('should sort events chronologically', async () => {
             const actual = await bloodhound.track('235825413', 'xpo');
 
             if (actual.events.length > 1) {
@@ -123,7 +123,7 @@ test('XPO', async (t) => {
             }
         });
 
-        t.test('should set deliveredAt for delivered packages', async () => {
+        await t.test('should set deliveredAt for delivered packages', async () => {
             const actual = await bloodhound.track('235825413', 'xpo');
 
             if (actual.deliveredAt) {
@@ -131,7 +131,7 @@ test('XPO', async (t) => {
             }
         });
 
-        t.test('should set shippedAt for packages in transit', async () => {
+        await t.test('should set shippedAt for packages in transit', async () => {
             const actual = await bloodhound.track('235825413', 'xpo');
 
             if (actual.shippedAt) {
@@ -139,7 +139,7 @@ test('XPO', async (t) => {
             }
         });
 
-        t.test('should verify event structure', async () => {
+        await t.test('should verify event structure', async () => {
             const actual = await bloodhound.track('235825413', 'xpo');
 
             actual.events.forEach(event => {
@@ -155,8 +155,8 @@ test('XPO', async (t) => {
         // `err.message === '404 Not Found'` happens to match. This one is mocked because the
         // case worth covering is the one the live API does not produce. HttpError's message is
         // `${status} ${statusText}`, and the reason phrase is chosen by the origin and
-        // normalised by nobody — httpbin answers with "INTERNAL SERVER ERROR" in
-        // test/carriers/pitneyBowes.js, so an uppercase "404 NOT FOUND" is not hypothetical.
+        // normalised by nobody — httpbin.org answers a 500 with an uppercase
+        // "INTERNAL SERVER ERROR", so an uppercase "404 NOT FOUND" is not hypothetical.
         //
         // The body also carries an errors[] array, which is inert today: @stores.com/xpo pins
         // @stores.com/http-error ~1.0.0, which leaves the message alone. 1.2.0 — the version

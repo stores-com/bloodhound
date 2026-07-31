@@ -85,7 +85,12 @@ function processTrackingData(err, data, isImb, trackingNumber, _options, options
             date = moment.parseZone(`${scanDetail.eventDate}T${scanDetail.eventTime}${scanDetail.eventTimeOffset}`).toDate();
         } else {
             const timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-            date = moment.tz(`${scanDetail.eventDate} ${scanDetail.eventTime}`, 'YYYY-MM-DD HH:mm:ss', timezone).toDate();
+
+            // Parsed strictly. Without the strict flag Moment accepts input that does not match the
+            // format and fills in the rest: a truncated `2026-03-3` becomes the 1st of the month and
+            // a missing eventTime becomes midnight. Those are valid-looking wrong timestamps that
+            // flow into deliveredAt and shippedAt with nothing to distinguish them from real scans.
+            date = moment.tz(`${scanDetail.eventDate} ${scanDetail.eventTime}`, 'YYYY-MM-DD HH:mm:ss', true, timezone).toDate();
         }
 
         // Ensure event is after minDate (used to prevent data from reused tracking numbers)
