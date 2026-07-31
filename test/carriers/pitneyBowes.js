@@ -408,7 +408,7 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
         assert.strictEqual(results.url, 'https://tracking.pb.com/00042902529942000716');
     });
 
-    await t.test('should handle options as callback (no options argument)', async (t) => {
+    await t.test('should work when track is called without an options argument', async (t) => {
         const originalFetch = mockFetch('4203300992612927005269000093974783');
         t.after(() => { global.fetch = originalFetch; });
 
@@ -518,15 +518,13 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
         assert.strictEqual(results.shippedAt.getTime(), results.deliveredAt.getTime());
     });
 
-    await t.test('should handle options as callback when calling carrier directly', async (t) => {
+    await t.test('should work when the carrier is called directly without options', async (t) => {
         const originalFetch = mockFetch('4203300992612927005269000093974783');
         t.after(() => { global.fetch = originalFetch; });
 
         const carrier = new PitneyBowes({ api_key: 'test', api_secret: 'test' });
 
-        const results = await new Promise((resolve, reject) => {
-            carrier.track('4203300992612927005269000093974783', (err, data) => err ? reject(err) : resolve(data));
-        });
+        const results = await carrier.track('4203300992612927005269000093974783');
 
         assert(results);
         assert(results.events.length > 0);

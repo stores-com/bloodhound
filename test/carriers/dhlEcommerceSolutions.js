@@ -91,13 +91,10 @@ test('DHL eCommerce Solutions', async (t) => {
                 }));
             });
 
-            const args = await new Promise((resolve) => {
-                dhlEcommerceSolutions.track(validTrackingNumbers[0], (...args) => resolve(args));
-            });
+            const actual = await dhlEcommerceSolutions.track(validTrackingNumbers[0]);
 
-            assert.strictEqual(args[0], null);
-            assert.strictEqual(args[1].carrier, 'DHL');
-            assert.strictEqual(args[1].events.length, 0);
+            assert.strictEqual(actual.carrier, 'DHL');
+            assert.strictEqual(actual.events.length, 0);
 
             // Asked DHL once. A 404 is a permanent answer for this tracking number, so the
             // retry's errorFilter stops it from spending four more calls on an outcome that
@@ -124,12 +121,11 @@ test('DHL eCommerce Solutions', async (t) => {
                 return Promise.resolve(new Response('Internal Server Error', { status: 500 }));
             });
 
-            const args = await new Promise((resolve) => {
-                dhlEcommerceSolutions.track(validTrackingNumbers[0], (...args) => resolve(args));
-            });
+            await assert.rejects(() => dhlEcommerceSolutions.track(validTrackingNumbers[0]), (err) => {
+                assert.strictEqual(err.cause.status, 500);
 
-            assert.strictEqual(args[0].cause.status, 500);
-            assert.strictEqual(args[1], undefined);
+                return true;
+            });
 
             // async.retry's default of 5 attempts, unchanged for a transient failure.
             assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('/tracking/v4/package')).length, 5);

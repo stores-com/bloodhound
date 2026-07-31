@@ -32,7 +32,7 @@ There is no explicit lint command, but the project uses ESLint with configuratio
 
 1. **Carrier Interface**: Each carrier module exports a constructor function with:
    - `isTrackingNumberValid()`: Validates tracking number format
-   - `track()`: Retrieves tracking data and returns standardized format
+   - `track(trackingNumber, [options])`: `async`; resolves with tracking data in the standardized format
 
 2. **Timestamp Handling**: Carriers that supply a UTC offset are parsed directly. Carriers that supply a bare local timestamp (DHL and USPS) are interpreted in the `defaultTimezone` option, falling back to the host machine's timezone. Bloodhound does not geocode.
 
@@ -56,7 +56,7 @@ There is no explicit lint command, but the project uses ESLint with configuratio
 ## Development Guidelines
 
 - Carrier validation logic uses specific patterns for each carrier's tracking number format
-- Error handling should follow the Node.js callback pattern: `callback(err, data)`
+- Carrier `track()` methods are `async` and return the results object. Errors are thrown, not passed to a callback — nothing in the package takes a callback
 - When adding new carriers, implement both `isTrackingNumberValid()` and `track()` methods
 - Geocoding is expensive - always check cache before making API calls
 - The project uses CommonJS modules (`require`/`module.exports`)

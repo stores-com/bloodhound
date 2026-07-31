@@ -90,13 +90,7 @@ function DhlEcommerceSolutions(options) {
         return false;
     };
 
-    this.track = async (trackingNumber, _options, callback) => {
-        // Options are optional
-        if (typeof _options === 'function') {
-            callback = _options;
-            _options = {};
-        }
-
+    this.track = async (trackingNumber, _options = {}) => {
         if (!_options.minDate) {
             _options.minDate = new Date(0);
         }
@@ -120,7 +114,7 @@ function DhlEcommerceSolutions(options) {
             // own text whenever the body carries an `errors[]` array. The status on
             // `cause` is the one part that can't be overwritten.
             if (err.cause?.status !== 404) {
-                return callback(err);
+                throw err;
             }
         }
 
@@ -131,7 +125,7 @@ function DhlEcommerceSolutions(options) {
         };
 
         if (!body?.packages?.length) {
-            return callback(null, results);
+            return results;
         }
 
         // We only support the first package
@@ -205,7 +199,7 @@ function DhlEcommerceSolutions(options) {
             results.shippedAt = results.deliveredAt;
         }
 
-        callback(null, results);
+        return results;
     };
 };
 

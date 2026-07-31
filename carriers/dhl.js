@@ -31,25 +31,19 @@ function DHL(options) {
         return dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber);
     };
 
-    this.track = (trackingNumber, _options, callback) => {
-        // Options are optional
-        if (typeof _options === 'function') {
-            callback = _options;
-            _options = {};
-        }
-
+    this.track = async (trackingNumber, _options = {}) => {
         if (!_options.minDate) {
             _options.minDate = new Date(0);
         }
 
-        const trackWithUTAPI = (_options) => {
+        const trackWithUTAPI = async () => {
             // This is the API being used from: https://developer.dhl.com/api-reference/shipment-tracking
             //
             // A 4xx is a permanent answer for this tracking number, so it is surfaced on the
             // first attempt. Retrying only spends carrier calls, and those wasted calls earn
             // the 429 that produces the next failure. A transport failure has no status to
             // judge and stays retryable.
-            async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, async () => {
+            const body = await async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, async () => {
                 const response = await fetch(`https://api-eu.dhl.com/track/shipments?trackingNumber=${trackingNumber}`, {
                     headers: {
                         'Accept-Encoding': 'gzip, deflate',
@@ -65,101 +59,97 @@ function DHL(options) {
                 }
 
                 return await response.json();
-            }, (err, body) => {
-                if (err) {
-                    return callback(err);
-                }
+            });
 
-                const results = {
-                    carrier: 'DHL',
-                    events: [],
-                    raw: body
+            const results = {
+                carrier: 'DHL',
+                events: [],
+                raw: body
+            };
+
+            if (!body || !body.shipments || !body.shipments.length) {
+                return results;
+            }
+
+            // We only support the first shipment
+            const shipment = body.shipments[0];
+
+            const estimatedDeliveryDate = shipment.estimatedTimeOfDelivery;
+
+            // Add estimated delivery date to results if available
+            if (estimatedDeliveryDate) {
+                // DHL typically provides a single estimated delivery date, so we use it for both earliest and latest
+                const deliveryDate = moment.utc(estimatedDeliveryDate).toDate();
+                results.estimatedDeliveryDate = {
+                    earliest: deliveryDate,
+                    latest: deliveryDate
+                };
+            }
+
+            // Reverse the array to get events in order Least Recent - Most Recent
+            const events = shipment.events.reverse();
+
+            // Used when there is no address data present
+            const previousAddress = shipment.origin?.address;
+
+            // Fall back to the shipment's origin when an event carries no address
+            events.forEach(event => {
+                if (!event.location?.address) {
+                    event.location = event.location || {};
+                    event.location.address = previousAddress;
+                }
+            });
+
+            events.forEach(event => {
+                // DHL's UTAPI timestamps carry no offset, so they're interpreted in the
+                // caller's configured timezone. Without geocoding we can't know the scan's
+                // own zone, so a scan elsewhere is off by the difference between them.
+                const timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+                const _event = {
+                    address: {
+                        city: event.location.address?.addressLocality,
+                        country: event.location.address?.countryCode,
+                        // DHL's UTAPI has no state field, and it used to come from the
+                        // geocoder. It is undefined now rather than guessed.
+                        state: undefined,
+                        zip: event.location.address?.postalCode
+                    },
+                    date: moment.tz(event.timestamp, 'YYYY-MM-DDTHH:mm:ss', timezone).toDate(),
+                    description: event.description
                 };
 
-                if (!body || !body.shipments || !body.shipments.length) {
-                    return callback(null, results);
+                // Ensure event is after minDate (used to prevent data from reused tracking numbers)
+                if (_event.date < _options.minDate) {
+                    return;
                 }
 
-                // We only support the first shipment
-                const shipment = body.shipments[0];
-
-                const estimatedDeliveryDate = shipment.estimatedTimeOfDelivery;
-
-                // Add estimated delivery date to results if available
-                if (estimatedDeliveryDate) {
-                    // DHL typically provides a single estimated delivery date, so we use it for both earliest and latest
-                    const deliveryDate = moment.utc(estimatedDeliveryDate).toDate();
-                    results.estimatedDeliveryDate = {
-                        earliest: deliveryDate,
-                        latest: deliveryDate
-                    };
+                if (event.remark) {
+                    _event.details = event.remark;
                 }
 
-                // Reverse the array to get events in order Least Recent - Most Recent
-                const events = shipment.events.reverse();
-
-                // Used when there is no address data present
-                const previousAddress = shipment.origin?.address;
-
-                // Fall back to the shipment's origin when an event carries no address
-                events.forEach(event => {
-                    if (!event.location?.address) {
-                        event.location = event.location || {};
-                        event.location.address = previousAddress;
-                    }
-                });
-
-                events.forEach(event => {
-                    // DHL's UTAPI timestamps carry no offset, so they're interpreted in the
-                    // caller's configured timezone. Without geocoding we can't know the scan's
-                    // own zone, so a scan elsewhere is off by the difference between them.
-                    const timezone = options.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-                    const _event = {
-                        address: {
-                            city: event.location.address?.addressLocality,
-                            country: event.location.address?.countryCode,
-                            // DHL's UTAPI has no state field, and it used to come from the
-                            // geocoder. It is undefined now rather than guessed.
-                            state: undefined,
-                            zip: event.location.address?.postalCode
-                        },
-                        date: moment.tz(event.timestamp, 'YYYY-MM-DDTHH:mm:ss', timezone).toDate(),
-                        description: event.description
-                    };
-
-                    // Ensure event is after minDate (used to prevent data from reused tracking numbers)
-                    if (_event.date < _options.minDate) {
-                        return;
-                    }
-
-                    if (event.remark) {
-                        _event.details = event.remark;
-                    }
-
-                    if (!results.deliveredAt && _event.description && DELIVERED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
-                        results.deliveredAt = _event.date;
-                    }
-
-                    if (!results.shippedAt && _event.description && SHIPPED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
-                        results.shippedAt = _event.date;
-                    }
-
-                    results.events.push(_event);
-                });
-
-                // Add URL to carrier tracking page
-                results.url = `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${encodeURIComponent(trackingNumber)}&submit=1`;
-
-                // Reverse results again to get events in order Most Recent - Least Recent
-                results.events.reverse();
-
-                if (!results.shippedAt && results.deliveredAt) {
-                    results.shippedAt = results.deliveredAt;
+                if (!results.deliveredAt && _event.description && DELIVERED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
+                    results.deliveredAt = _event.date;
                 }
 
-                callback(null, results);
+                if (!results.shippedAt && _event.description && SHIPPED_TRACKING_DESCRIPTIONS.find(desc => _event.description.toUpperCase().startsWith(desc))) {
+                    results.shippedAt = _event.date;
+                }
+
+                results.events.push(_event);
             });
+
+            // Add URL to carrier tracking page
+            results.url = `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${encodeURIComponent(trackingNumber)}&submit=1`;
+
+            // Reverse results again to get events in order Most Recent - Least Recent
+            results.events.reverse();
+
+            if (!results.shippedAt && results.deliveredAt) {
+                results.shippedAt = results.deliveredAt;
+            }
+
+            return results;
         };
 
         if (options.dhlEcommerceSolutions && dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber)) {
@@ -167,19 +157,23 @@ function DHL(options) {
             // it rather than adding to it. The same 4xx filter has to be here too: without it a
             // 429 still cost five lookups after the inner retry had already stopped retrying,
             // because each of those five was a fresh outer attempt.
-            async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, (callback) => {
-                dhlEcommerceSolutions.track(trackingNumber, _options, callback);
-            }, (err, results) => {
-                // If DHL eCommerce Solutions fails, try UTAPI
-                if (err || !results.raw?.packages?.length) {
-                    return trackWithUTAPI(_options);
-                }
+            let results;
 
-                return callback(err, results);
-            });
-        } else {
-            return trackWithUTAPI(_options);
+            try {
+                results = await async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, async () => await dhlEcommerceSolutions.track(trackingNumber, _options));
+            } catch {
+                // If DHL eCommerce Solutions fails, try UTAPI
+                return await trackWithUTAPI();
+            }
+
+            if (!results.raw?.packages?.length) {
+                return await trackWithUTAPI();
+            }
+
+            return results;
         }
+
+        return await trackWithUTAPI();
     };
 }
 

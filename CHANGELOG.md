@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changed
+- Every carrier's `track()` is now `async` and resolves with the results object instead of taking a `callback(err, data)`. Errors reject rather than arriving as a first argument. `bloodhound.track()` is unaffected — it has returned a promise since 4.0.0 and still throws a `TypeError` if handed a callback — so this only reaches consumers who deep-require a carrier module directly (`require('@stores.com/bloodhound/carriers/ups')`), which is undocumented but resolvable because the package has no `exports` map
+- **BREAKING for deep-require consumers:** `carriers/fedEx.js`'s `getAccessToken()` is `async` and returns the token instead of taking a callback
+- Carrier `track()` no longer accepts a callback in the options position. `_options` defaults to `{}`, so `track(trackingNumber)` still works. `carriers/gofo.js` and `carriers/onTrac.js` take only a tracking number — they never read the options argument, which also means neither honours `minDate`
+
 ## [4.0.2] - 2026-07-31
 ### Added
 - `engines` now declares `node >= 18`. Five carriers (`amazon`, `dhl`, `fedEx`, `gofo`, `onTrac`) call global `fetch` and `AbortSignal.timeout`, neither of which is available unflagged before Node 18, so a Node 16 consumer installed cleanly and then failed at request time with no warning from npm

@@ -72,13 +72,7 @@ function Amazon() {
         return /^TB[A-CM][0-9]{12}$/.test(trackingNumber);
     };
 
-    this.track = async (trackingNumber, _options, callback) => {
-        // Options are optional
-        if (typeof _options === 'function') {
-            callback = _options;
-            _options = {};
-        }
-
+    this.track = async (trackingNumber, _options = {}) => {
         if (!_options.minDate) {
             _options.minDate = new Date(0);
         }
@@ -86,92 +80,88 @@ function Amazon() {
         // Clean tracking number
         trackingNumber = trackingNumber.replace(/\s/g, '').toUpperCase();
 
-        try {
-            const res = await fetch(`https://track.amazon.com/api/tracker/${trackingNumber}`, {
-                signal: AbortSignal.timeout(30000)
-            });
+        const res = await fetch(`https://track.amazon.com/api/tracker/${trackingNumber}`, {
+            signal: AbortSignal.timeout(30000)
+        });
 
-            if (!res.ok) {
-                throw await HttpError.from(res);
-            }
-
-            const json = await res.json();
-
-            const results = {
-                carrier: 'Amazon',
-                events: [],
-                raw: json,
-                url: `https://track.amazon.com/tracking/${trackingNumber}`
-            };
-
-            if (!json) {
-                // No data returned, return empty results
-                return callback(null, results);
-            }
-
-            if (json.progressTracker) {
-                const progressTracker = typeof json.progressTracker === 'string' ? JSON.parse(json.progressTracker) : json.progressTracker;
-
-                if (progressTracker.summary.metadata.expectedDeliveryDate) {
-                    let dateValue = progressTracker.summary.metadata.expectedDeliveryDate;
-                    if (typeof dateValue === 'object' && dateValue.date) {
-                        dateValue = dateValue.date;
-                    }
-                    const isoDate = new Date(dateValue);
-                    results.estimatedDeliveryDate = {
-                        earliest: isoDate,
-                        latest: isoDate
-                    };
-                }
-            }
-
-            // Parse event history for detailed tracking events
-            if (json.eventHistory) {
-                const eventHistory = typeof json.eventHistory === 'string' ? JSON.parse(json.eventHistory) : json.eventHistory;
-                if (eventHistory.eventHistory && Array.isArray(eventHistory.eventHistory)) {
-                    for (let i = 0; i < eventHistory.eventHistory.length; i++) {
-                        const event = eventHistory.eventHistory[i];
-
-                        const trackingEvent = {
-                            address: {},
-                            date: new Date(event.eventTime),
-                            description: parseEventDescription(event.eventCode, event.statusSummary),
-                            details: event.eventCode
-                        };
-
-                        // Add location information if available
-                        if (event.location) {
-                            trackingEvent.address = {
-                                city: event.location.city,
-                                state: event.location.stateProvince,
-                                country: event.location.countryCode,
-                                zip: event.location.postalCode
-                            };
-                        }
-
-                        // Set shipping date for events that indicate movement in carrier network
-                        if (SHIPPED_EVENT_CODES.includes(event.eventCode) && !results.shippedAt) {
-                            results.shippedAt = new Date(event.eventTime);
-                        }
-
-                        // Set delivery date for delivery events
-                        if (DELIVERED_EVENT_CODES.includes(event.eventCode)) {
-                            results.deliveredAt = new Date(event.eventTime);
-                        }
-
-                        // Filter events after minDate
-                        if (trackingEvent.date >= _options.minDate) {
-                            results.events.push(trackingEvent);
-                        }
-                    }
-                }
-            }
-            results.events.sort((a, b) => a.date - b.date);
-
-            return callback(null, results);
-        } catch (err) {
-            return callback(err);
+        if (!res.ok) {
+            throw await HttpError.from(res);
         }
+
+        const json = await res.json();
+
+        const results = {
+            carrier: 'Amazon',
+            events: [],
+            raw: json,
+            url: `https://track.amazon.com/tracking/${trackingNumber}`
+        };
+
+        if (!json) {
+            // No data returned, return empty results
+            return results;
+        }
+
+        if (json.progressTracker) {
+            const progressTracker = typeof json.progressTracker === 'string' ? JSON.parse(json.progressTracker) : json.progressTracker;
+
+            if (progressTracker.summary.metadata.expectedDeliveryDate) {
+                let dateValue = progressTracker.summary.metadata.expectedDeliveryDate;
+                if (typeof dateValue === 'object' && dateValue.date) {
+                    dateValue = dateValue.date;
+                }
+                const isoDate = new Date(dateValue);
+                results.estimatedDeliveryDate = {
+                    earliest: isoDate,
+                    latest: isoDate
+                };
+            }
+        }
+
+        // Parse event history for detailed tracking events
+        if (json.eventHistory) {
+            const eventHistory = typeof json.eventHistory === 'string' ? JSON.parse(json.eventHistory) : json.eventHistory;
+            if (eventHistory.eventHistory && Array.isArray(eventHistory.eventHistory)) {
+                for (let i = 0; i < eventHistory.eventHistory.length; i++) {
+                    const event = eventHistory.eventHistory[i];
+
+                    const trackingEvent = {
+                        address: {},
+                        date: new Date(event.eventTime),
+                        description: parseEventDescription(event.eventCode, event.statusSummary),
+                        details: event.eventCode
+                    };
+
+                    // Add location information if available
+                    if (event.location) {
+                        trackingEvent.address = {
+                            city: event.location.city,
+                            state: event.location.stateProvince,
+                            country: event.location.countryCode,
+                            zip: event.location.postalCode
+                        };
+                    }
+
+                    // Set shipping date for events that indicate movement in carrier network
+                    if (SHIPPED_EVENT_CODES.includes(event.eventCode) && !results.shippedAt) {
+                        results.shippedAt = new Date(event.eventTime);
+                    }
+
+                    // Set delivery date for delivery events
+                    if (DELIVERED_EVENT_CODES.includes(event.eventCode)) {
+                        results.deliveredAt = new Date(event.eventTime);
+                    }
+
+                    // Filter events after minDate
+                    if (trackingEvent.date >= _options.minDate) {
+                        results.events.push(trackingEvent);
+                    }
+                }
+            }
+        }
+        results.events.sort((a, b) => a.date - b.date);
+
+        return results;
     };
 }
 

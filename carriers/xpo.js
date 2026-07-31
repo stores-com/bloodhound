@@ -23,12 +23,7 @@ module.exports = function(options) {
         return (Number(trackingNumber.slice(0, 8)) % 7) === checkDigit;
     };
 
-    this.track = async (trackingNumber, _options, callback) => {
-        if (typeof _options === 'function') {
-            callback = _options;
-            _options = {};
-        }
-
+    this.track = async (trackingNumber, _options = {}) => {
         if (!_options.minDate) {
             _options.minDate = new Date(0);
         }
@@ -49,7 +44,7 @@ module.exports = function(options) {
             const shipment = json?.data?.shipmentStatusDtls?.[0];
 
             if (!shipment) {
-                return callback(null, results);
+                return results;
             }
 
             if (shipment.estimatedDeliveryDate) {
@@ -93,17 +88,17 @@ module.exports = function(options) {
                 }
             }
 
-            callback(null, results);
+            return results;
         } catch (err) {
             // @stores.com/xpo raises @stores.com/http-error, whose message is
             // `${status} ${statusText}` — a reason phrase the origin picks and nobody normalises —
             // and which 1.2.0 replaces outright with the response body's errors[] text. The status
             // on `cause` is the one part that can't change.
             if (err.cause?.status === 404) {
-                return callback(null, results);
+                return results;
             }
 
-            callback(err);
+            throw err;
         }
     };
 };
