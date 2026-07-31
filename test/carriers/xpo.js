@@ -155,8 +155,8 @@ test('XPO', async (t) => {
         // `err.message === '404 Not Found'` happens to match. This one is mocked because the
         // case worth covering is the one the live API does not produce. HttpError's message is
         // `${status} ${statusText}`, and the reason phrase is chosen by the origin and
-        // normalised by nobody — httpbin answers with "INTERNAL SERVER ERROR" in
-        // test/carriers/pitneyBowes.js, so an uppercase "404 NOT FOUND" is not hypothetical.
+        // normalised by nobody — httpbin.org answers a 500 with an uppercase
+        // "INTERNAL SERVER ERROR", so an uppercase "404 NOT FOUND" is not hypothetical.
         //
         // The body also carries an errors[] array, which is inert today: @stores.com/xpo pins
         // @stores.com/http-error ~1.0.0, which leaves the message alone. 1.2.0 — the version

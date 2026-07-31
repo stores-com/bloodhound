@@ -116,20 +116,18 @@ function mockFetch(trackingNumber) {
 }
 
 test('Pitney Bowes', { timeout: 30000 }, async (t) => {
-    await t.test('should return an error for a base URL that answers 500', async (t) => {
-        // Mocked rather than pointed at httpbin.org. pitney-bowes@1.0.0 defaults its own request
-        // timeout to 30000ms and this file sets the same 30000ms test timeout, so when the live
-        // service was slow the abort and the test timeout raced and the test lost, taking the rest
-        // of the file's subtests with it. The reason phrase is deliberately not the standard one:
-        // it is chosen by the origin, and carriers/pitneyBowes.js must not key off it.
-        const originalFetch = global.fetch;
-        t.after(() => { global.fetch = originalFetch; });
-
-        global.fetch = async () => new Response('', { status: 500, statusText: 'INTERNAL SERVER ERROR' });
-
+    await t.test('should return an error for a base URL that answers 500', async () => {
+        // httpbingo.org rather than httpbin.org, which timed out in CI on 2026-07-30 and took the
+        // rest of this file's subtests down with it.
+        //
+        // The explicit timeout is what stops that repeating. pitney-bowes defaults its request
+        // timeout to 30000ms, the same value this file sets as its test timeout, so a slow host
+        // left the abort and the test timeout racing with no margin. At 5000ms the request always
+        // aborts first, 25 seconds before node:test gives up, whatever the host is doing.
         const bloodhound = new Bloodhound({
             pitneyBowes: {
-                baseUrl: 'https://pitney-bowes.invalid'
+                baseUrl: 'https://httpbingo.org/status/500#',
+                timeout: 5000
             }
         });
 
