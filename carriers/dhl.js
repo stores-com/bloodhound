@@ -45,11 +45,15 @@ function DHL(options) {
         const trackWithUTAPI = (_options) => {
             // This is the API being used from: https://developer.dhl.com/api-reference/shipment-tracking
             //
-            // A 4xx is a permanent answer for this tracking number, so it is surfaced on the
-            // first attempt. Retrying only spends carrier calls, and those wasted calls earn
-            // the 429 that produces the next failure. A transport failure has no status to
-            // judge and stays retryable.
-            async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, async () => {
+            // A 404 or 400 is a permanent answer for this tracking number and is surfaced on the
+            // first attempt — retrying only spends carrier calls. A 429 is the exception: it means
+            // try again later, not never, so it is retried on a backoff rather than immediately.
+            // A transport failure has no status to judge and stays retryable.
+            async.retry({
+                errorFilter: err => err?.cause?.status === 429 || !(err?.cause?.status >= 400 && err?.cause?.status < 500),
+                interval: retryCount => 100 * Math.pow(2, retryCount),
+                times: 3
+            }, async () => {
                 const response = await fetch(`https://api-eu.dhl.com/track/shipments?trackingNumber=${trackingNumber}`, {
                     headers: {
                         'Accept-Encoding': 'gzip, deflate',
@@ -167,6 +171,10 @@ function DHL(options) {
             // it rather than adding to it. The same 4xx filter has to be here too: without it a
             // 429 still cost five lookups after the inner retry had already stopped retrying,
             // because each of those five was a fresh outer attempt.
+            //
+            // Deliberately stricter than the UTAPI filter above: 429 is *not* retried here. The
+            // inner call already backs off on a 429, and retrying it out here would multiply that
+            // backoff rather than extend it.
             async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, (callback) => {
                 dhlEcommerceSolutions.track(trackingNumber, _options, callback);
             }, (err, results) => {

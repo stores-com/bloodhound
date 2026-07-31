@@ -108,6 +108,10 @@ function DhlEcommerceSolutions(options) {
             // equally permanent, so neither is retried — retrying a tracking number DHL does not
             // have is what earns the 429. A transport failure has no status to judge and stays
             // retryable.
+            //
+            // 429 is deliberately not retried here, unlike on the UTAPI. Any failure on this leg
+            // falls through to the UTAPI anyway, so a retry here delays that fallthrough and
+            // spends a lookup without being able to change the outcome.
             body = await async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, async () => await dhlEcommerceClient.getTrackingByTrackingId(trackingNumber));
         } catch (err) {
             // A tracking number DHL doesn't know yet isn't an error — leave body undefined

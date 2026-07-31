@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.3] - 2026-07-31
+### Changed
+- DHL: retry a 429 on a backoff rather than surfacing it on the first attempt. 4.0.1 filtered every 4xx out of the retry, which is right for a 404 or a 400 — the tracking number is unknown or malformed and no number of attempts changes that — but wrong for a 429, which means try again later rather than never. The UTAPI now makes up to three attempts on an exponential backoff (100ms, doubling), and a 5xx moves from five back-to-back attempts to those same three spaced out. The DHL eCommerce Solutions leg and the wrapper around it still retry no 4xx at all, 429 included: a failure on that leg falls through to the UTAPI regardless, so retrying there cannot change the outcome and would multiply the UTAPI's backoff rather than extend it
+
 ## [4.0.2] - 2026-07-31
 ### Added
 - `engines` now declares `node >= 18`. Five carriers (`amazon`, `dhl`, `fedEx`, `gofo`, `onTrac`) call global `fetch` and `AbortSignal.timeout`, neither of which is available unflagged before Node 18, so a Node 16 consumer installed cleanly and then failed at request time with no warning from npm

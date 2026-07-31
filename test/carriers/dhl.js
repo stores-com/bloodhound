@@ -181,8 +181,32 @@ test('DHL', async (t) => {
                 return true;
             });
 
-            // async.retry's default of 5 attempts, unchanged for transient failures.
-            assert.strictEqual(fetchMock.mock.callCount(), 5);
+            // Three attempts on a backoff. This was async.retry's default of 5 fired back to
+            // back; a 5xx deserves a retry but not five immediate ones.
+            assert.strictEqual(fetchMock.mock.callCount(), 3);
+        });
+
+        await t.test('should retry a UTAPI 429 rather than giving up on it', async () => {
+            const fetchMock = t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
+                detail: 'Too many requests within defined time period, please try again later.',
+                status: 429,
+                title: 'Too Many Requests'
+            }), {
+                headers: { 'content-type': 'application/json' },
+                status: 429
+            })));
+
+            const bloodhound = new Bloodhound({ dhl: { apiKey: 'test' } });
+
+            await assert.rejects(() => bloodhound.track(validTrackingNumbers[0], 'dhl'), (err) => {
+                assert.strictEqual(err.cause.status, 429);
+
+                return true;
+            });
+
+            // 429 is the one 4xx that means "try again later" rather than "never", so unlike a
+            // 404 it is retried — on a backoff, not back to back.
+            assert.strictEqual(fetchMock.mock.callCount(), 3);
         });
 
         await t.test('should not multiply retries through the DHL eCommerce Solutions path', async () => {
@@ -214,11 +238,11 @@ test('DHL', async (t) => {
                 return true;
             });
 
-            // Two calls: the access token request, which is where a 429 on every endpoint
-            // stops this path, and then the UTAPI. The outer retry wrapping
-            // dhlEcommerceSolutions.track() multiplies the inner one rather than adding to it,
-            // so without its own filter a single 429 costs 6 calls instead of 2.
-            assert.strictEqual(fetchMock.mock.callCount(), 2);
+            // One call on the eCommerce leg — the access token request, which is where a 429 on
+            // every endpoint stops that path — and then three on the UTAPI, which does back off
+            // on a 429. The eCommerce leg deliberately does not retry its own 429, and the outer
+            // wrapper does not retry either, so neither multiplies the UTAPI's backoff.
+            assert.strictEqual(fetchMock.mock.callCount(), 4);
         });
 
         await t.test('should not retry a DHL eCommerce Solutions 4xx before falling through to the UTAPI', async () => {
