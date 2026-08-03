@@ -72,7 +72,7 @@ test('DHL', async (t) => {
             assert.equal('DHL', actual.carrier);
         });
 
-        await t.test('should fall through to DHL UTAPI and return a response with no errors when DHL eCommerce Solutions fails', async () => {
+        await t.test('should fall through to DHL UTAPI and return a response with no errors when DHL eCommerce Solutions fails for a non-IMpb number', async () => {
             t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 shipments: [{
                     id: '698E011D2920F49AA1243104',
@@ -107,7 +107,10 @@ test('DHL', async (t) => {
                 }
             });
 
-            const actual = await bloodhound.track(validTrackingNumbers[0], 'dhl');
+            // A bare IMpb without its 420 routing prefix, because a 420-prefixed number no
+            // longer falls through to the UTAPI at all — the UTAPI answers 404 for every
+            // 420-prefixed IMpb, so the fall-through only exists for other numbers now.
+            const actual = await bloodhound.track('9374810912400407068201', 'dhl');
 
             assert.equal('DHL', actual.carrier);
         });
@@ -126,8 +129,10 @@ test('DHL', async (t) => {
                 }
             });
 
-            // No packages with length to track, so this is falling through to UTAPI.
-            // Asserted on the status rather than the message: the message is now
+            // A 420-prefixed IMpb goes to DHL eCommerce Solutions regardless of Mailer ID,
+            // so the 401 here comes from its access token request and surfaces directly —
+            // an IMpb number never falls through to the UTAPI.
+            // Asserted on the status rather than the message: the message is
             // @stores.com/http-error's "401 Unauthorized", and it gets replaced by the
             // carrier's own text whenever a response body carries an `errors[]` array.
             await assert.rejects(() => bloodhound.track(validTrackingNumbers[0], 'dhl'), (err) => {
@@ -207,21 +212,22 @@ test('DHL', async (t) => {
             });
 
             // This number is valid for DHL eCommerce Solutions, so the lookup takes the
-            // eCommerce path first and then falls through to the UTAPI.
+            // eCommerce path and the 429 surfaces from there.
             await assert.rejects(() => bloodhound.track('420480369374810912400407068201', 'dhl'), (err) => {
                 assert.strictEqual(err.cause.status, 429);
 
                 return true;
             });
 
-            // Two calls: the access token request, which is where a 429 on every endpoint
-            // stops this path, and then the UTAPI. The outer retry wrapping
-            // dhlEcommerceSolutions.track() multiplies the inner one rather than adding to it,
-            // so without its own filter a single 429 costs 6 calls instead of 2.
-            assert.strictEqual(fetchMock.mock.callCount(), 2);
+            // One call: the access token request, which is where a 429 on every endpoint
+            // stops this path. The outer retry wrapping dhlEcommerceSolutions.track()
+            // multiplies the inner one rather than adding to it, so without its own filter a
+            // single 429 costs five calls instead of one. An IMpb number no longer falls
+            // through to the UTAPI, which is what previously made this two.
+            assert.strictEqual(fetchMock.mock.callCount(), 1);
         });
 
-        await t.test('should not retry a DHL eCommerce Solutions 4xx before falling through to the UTAPI', async () => {
+        await t.test('should not retry a DHL eCommerce Solutions 4xx', async () => {
             // dhlEcommerceSolutions.track() retries internally and this file wraps it in another
             // async.retry, so the two multiply rather than add. Both need the filter: with it on
             // only the inner one, a 429 still cost five lookups, because each was a fresh outer
@@ -244,7 +250,7 @@ test('DHL', async (t) => {
                     }));
                 }
 
-                // The UTAPI, which a DHL eCommerce Solutions failure is meant to fall through to.
+                // The UTAPI, which an IMpb number must never fall through to — asserted below.
                 return Promise.resolve(new Response(JSON.stringify({ shipments: [] }), {
                     headers: { 'content-type': 'application/json' },
                     status: 200
@@ -260,10 +266,115 @@ test('DHL', async (t) => {
                 }
             });
 
-            await bloodhound.track(dhlEcommerceSolutionsTrackingNumber, 'dhl');
+            await assert.rejects(() => bloodhound.track(dhlEcommerceSolutionsTrackingNumber, 'dhl'), (err) => {
+                assert.strictEqual(err.cause.status, 429);
+
+                return true;
+            });
 
             assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('/tracking/v4/package')).length, 1);
-            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('api-eu.dhl.com')).length, 1);
+
+            // The number is a 420-prefixed IMpb, so the eCommerce Solutions failure surfaces
+            // instead of falling through to the UTAPI
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('api-eu.dhl.com')).length, 0);
+        });
+
+        await t.test('should track an IMpb number with an unrecognized Mailer ID through DHL eCommerce Solutions instead of the UTAPI', async () => {
+            // 92/612/999998: a well-formed IMpb from a Mailer ID that DHL_IMPB_REGEX does not
+            // recognize. These numbers previously skipped DHL eCommerce Solutions entirely and
+            // went to the UTAPI, which answers 404 for every 420-prefixed IMpb regardless of
+            // Mailer ID — a guaranteed failure spent against a rate-limited endpoint.
+            const fetchMock = t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/auth/v4/accesstoken')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                if (url.includes('/tracking/v4/package')) {
+                    return Promise.resolve(new Response(JSON.stringify({ packages: [] }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                // The UTAPI, which answers 404 for these numbers in production. The count
+                // assertion below proves it is never asked.
+                return Promise.resolve(new Response(JSON.stringify({
+                    detail: 'No shipment with given tracking number found.',
+                    status: 404,
+                    title: 'No result found'
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 404
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                dhl: { apiKey: 'test' },
+                dhlEcommerceSolutions: {
+                    client_id: 'test',
+                    client_secret: 'test',
+                    environment_url: 'https://api-sandbox.dhlecs.com'
+                }
+            });
+
+            const actual = await bloodhound.track(validTrackingNumbers[0], 'dhl');
+
+            assert.strictEqual(actual.carrier, 'DHL');
+            assert.strictEqual(actual.events.length, 0);
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('/tracking/v4/package')).length, 1);
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('api-eu.dhl.com')).length, 0);
+        });
+
+        await t.test('should not fall through to the UTAPI when DHL eCommerce Solutions has no packages for an IMpb number', async () => {
+            // The Mailer ID on this number passes DHL_IMPB_REGEX, so it reached DHL eCommerce
+            // Solutions before this change too — but an empty packages array used to fall
+            // through to the UTAPI, which cannot resolve any 420-prefixed IMpb. The empty
+            // answer is DHL's answer; it is returned rather than traded for a guaranteed 404.
+            const fetchMock = t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/auth/v4/accesstoken')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                if (url.includes('/tracking/v4/package')) {
+                    return Promise.resolve(new Response(JSON.stringify({ packages: [] }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                // The UTAPI, which answers 404 for these numbers in production. The count
+                // assertion below proves it is never asked.
+                return Promise.resolve(new Response(JSON.stringify({
+                    detail: 'No shipment with given tracking number found.',
+                    status: 404,
+                    title: 'No result found'
+                }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 404
+                }));
+            });
+
+            const bloodhound = new Bloodhound({
+                dhl: { apiKey: 'test' },
+                dhlEcommerceSolutions: {
+                    client_id: 'test',
+                    client_secret: 'test',
+                    environment_url: 'https://api-sandbox.dhlecs.com'
+                }
+            });
+
+            const actual = await bloodhound.track('420480369374810912400407068201', 'dhl');
+
+            assert.strictEqual(actual.carrier, 'DHL');
+            assert.strictEqual(actual.events.length, 0);
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('/tracking/v4/package')).length, 1);
+            assert.strictEqual(fetchMock.mock.calls.filter(call => call.arguments[0].includes('api-eu.dhl.com')).length, 0);
         });
 
         await t.test('should set shippedAt for "PROCESSED THROUGH USPS SORT FACILITY" events from UTAPI', async () => {

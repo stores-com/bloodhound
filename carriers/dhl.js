@@ -162,7 +162,14 @@ function DHL(options) {
             });
         };
 
-        if (options.dhlEcommerceSolutions && dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber)) {
+        // A 420-prefixed IMpb barcode is a DHL eCommerce shipment whatever its Mailer ID,
+        // and the UTAPI cannot resolve one: it answers 404 for Mailer IDs both inside and
+        // outside DHL_IMPB_REGEX. So these numbers are asked of eCommerce Solutions
+        // regardless of Mailer ID, and its answer — including "no packages" — is final
+        // rather than a reason to spend a rate-limited UTAPI call on a guaranteed 404.
+        const isImpb = /^420\d{27}$/.test(trackingNumber);
+
+        if (options.dhlEcommerceSolutions && (isImpb || dhlEcommerceSolutions.isTrackingNumberValid(trackingNumber))) {
             // dhlEcommerceSolutions.track() retries internally, so this outer retry multiplies
             // it rather than adding to it. The same 4xx filter has to be here too: without it a
             // 429 still cost five lookups after the inner retry had already stopped retrying,
@@ -170,8 +177,9 @@ function DHL(options) {
             async.retry({ errorFilter: err => !(err?.cause?.status >= 400 && err?.cause?.status < 500) }, (callback) => {
                 dhlEcommerceSolutions.track(trackingNumber, _options, callback);
             }, (err, results) => {
-                // If DHL eCommerce Solutions fails, try UTAPI
-                if (err || !results.raw?.packages?.length) {
+                // If DHL eCommerce Solutions fails, try UTAPI — except for an IMpb barcode,
+                // where the UTAPI cannot succeed
+                if (!isImpb && (err || !results.raw?.packages?.length)) {
                     return trackWithUTAPI(_options);
                 }
 

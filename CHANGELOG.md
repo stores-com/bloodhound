@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- DHL: a 420-prefixed IMpb tracking number is now tracked through DHL eCommerce Solutions regardless of its Mailer ID, and no longer falls through to the Shipment Tracking API (UTAPI) when eCommerce Solutions errors or returns no packages. `DHL_IMPB_REGEX` recognizes exactly one Mailer ID (`109124`), so a shipment from any other Mailer ID skipped eCommerce Solutions entirely and went to the UTAPI — which answers 404 for every 420-prefixed IMpb barcode, including numbers whose Mailer ID passes the existing check (verified against `api-eu.dhl.com` across five Mailer ID groups). Each such lookup was a guaranteed 404 spent against a rate-limited endpoint. These lookups now return eCommerce Solutions' own answer, which is an empty `events` array when DHL has no data for the number, instead of rejecting with a 404 `HttpError`. `isTrackingNumberValid()` and `guessCarrier()` are unchanged, so no tracking number changes carrier, and numbers tracked without `dhlEcommerceSolutions` credentials still use the UTAPI
+
 ## [4.0.2] - 2026-07-31
 ### Added
 - `engines` now declares `node >= 18`. Five carriers (`amazon`, `dhl`, `fedEx`, `gofo`, `onTrac`) call global `fetch` and `AbortSignal.timeout`, neither of which is available unflagged before Node 18, so a Node 16 consumer installed cleanly and then failed at request time with no warning from npm
