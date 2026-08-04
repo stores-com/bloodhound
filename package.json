@@ -12,8 +12,8 @@
     },
     "description": "Bloodhound is a Node.js package that allows you to retrieve tracking data from shipping carriers (Amazon, DHL, FedEx, UPS, USPS) in a common format.",
     "devDependencies": {
-        "@eslint/js": "*",
-        "globals": "*"
+        "@eslint/js": "~10.0.1",
+        "globals": "~17.6.0"
     },
     "engines": {
         "node": ">=18"
