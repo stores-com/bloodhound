@@ -2285,6 +2285,7 @@ test('FedEx', async (t) => {
 
         await t.test('should surface FedEx WARNING alerts as an error', async () => {
             const fedEx = new FedEx({ api_key: 'warning-alerts-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
 
             t.mock.method(globalThis, 'fetch', (url) => {
                 if (url.endsWith('/oauth/token')) {
@@ -2293,6 +2294,8 @@ test('FedEx', async (t) => {
                         status: 200
                     }));
                 }
+
+                trackingRequests++;
 
                 // FedEx reports this kind of problem on a 200.
                 return Promise.resolve(new Response(JSON.stringify({
@@ -2314,6 +2317,172 @@ test('FedEx', async (t) => {
 
                 return true;
             });
+
+            // The alert is checked outside `async.retry`, so a tracking number FedEx cannot
+            // find costs one lookup rather than five identical ones.
+            assert.strictEqual(trackingRequests, 1);
+        });
+
+        // @stores.com/fedex does not retry, so the `async.retry` in carriers/fedEx.js is the
+        // only thing keeping a transient failure from failing the lookup. Nothing asserted it
+        // before, which meant dropping the wrapper during the swap would have gone unnoticed.
+        await t.test('should retry a failed tracking request', async () => {
+            const fedEx = new FedEx({ api_key: 'retry-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
+
+            const fetchMock = t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                trackingRequests++;
+
+                if (trackingRequests === 1) {
+                    return Promise.resolve(new Response(JSON.stringify({ errors: [{ code: 'INTERNAL.SERVER.ERROR', message: 'We encountered an unexpected error' }] }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 500
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify(trackingPayload), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const actual = await fedEx.track('449044304137821');
+
+            assert.strictEqual(trackingRequests, 2);
+            assert.strictEqual(fetchMock.mock.calls.length, 3);
+            assert.deepStrictEqual(actual.events, []);
+        });
+
+        // @stores.com/fedex requests the token inside trackByTrackingNumber() and caches it only
+        // on success, so the token request sits inside `async.retry` where it used to sit outside
+        // it. Without the errorFilter a rejected credential cost five immediate auth attempts.
+        await t.test('should not retry a rejected credential', async () => {
+            const fedEx = new FedEx({ api_key: 'rejected-credential-key', secret_key: 'test-secret' });
+            let tokenRequests = 0;
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    tokenRequests++;
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({ errors: [{ code: 'NOT.AUTHORIZED.ERROR', message: 'Access token expired' }] }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 401
+                }));
+            });
+
+            await assert.rejects(() => fedEx.track('449044304137821'), (err) => {
+                assert.strictEqual(err.cause.status, 401);
+
+                return true;
+            });
+
+            assert.strictEqual(tokenRequests, 1);
+        });
+
+        await t.test('should not retry a 4xx from the tracking request', async () => {
+            const fedEx = new FedEx({ api_key: 'tracking-4xx-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                trackingRequests++;
+
+                return Promise.resolve(new Response(JSON.stringify({ errors: [{ code: 'TRACKING.TRACKINGNUMBER.EMPTY', message: 'Please provide tracking number' }] }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 400
+                }));
+            });
+
+            await assert.rejects(() => fedEx.track('449044304137821'), (err) => {
+                assert.strictEqual(err.cause.status, 400);
+
+                return true;
+            });
+
+            assert.strictEqual(trackingRequests, 1);
+        });
+
+        // The reason the errorFilter asks for a 5xx rather than reusing carriers/dhl.js's
+        // `!(status >= 400 && status < 500)`: @stores.com/fedex rejects a 200 that carries a
+        // top-level errors[] envelope, and its status is 200, so a 4xx-shaped filter would let
+        // a deterministic business error retry five times.
+        await t.test('should not retry a 200 carrying an errors[] envelope', async () => {
+            const fedEx = new FedEx({ api_key: 'errors-envelope-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                trackingRequests++;
+
+                return Promise.resolve(new Response(JSON.stringify({ errors: [{ code: 'TRACKING.TRACKINGNUMBER.NOTFOUND', message: 'Tracking number cannot be found' }] }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            await assert.rejects(() => fedEx.track('449044304137821'), (err) => {
+                assert.strictEqual(err.cause.status, 200);
+
+                return true;
+            });
+
+            assert.strictEqual(trackingRequests, 1);
+        });
+
+        // A non-JSON body on a 200 used to arrive as a raw string that parsed to nothing and
+        // returned an empty `events` array, indistinguishable from a shipment with no scans.
+        // The error class is @stores.com/fedex's to choose; what matters here is that the
+        // lookup fails rather than reporting success.
+        //
+        // The retry count is asserted because it is the one thing that would change silently.
+        // An HTML body on a 200 is a gateway interposing rather than FedEx answering, which is
+        // transient, and it is retried today only because @stores.com/fedex raises a SyntaxError
+        // with no `cause` for it. If that becomes an HttpError carrying `cause.status` 200 —
+        // which its maintainer intends — the errorFilter above will stop retrying it. This
+        // should fail at that dependency bump rather than change underneath us.
+        await t.test('should reject and retry when the tracking response is not JSON', async () => {
+            const fedEx = new FedEx({ api_key: 'non-json-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                trackingRequests++;
+
+                return Promise.resolve(new Response('<html><body>Service Unavailable</body></html>', {
+                    headers: { 'content-type': 'text/html' },
+                    status: 200
+                }));
+            });
+
+            await assert.rejects(() => fedEx.track('449044304137821'));
+
+            assert(trackingRequests > 1, `expected the lookup to be retried, got ${trackingRequests} tracking request(s)`);
         });
     });
 });
