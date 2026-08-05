@@ -1,6 +1,5 @@
 const async = require('async');
-const cache = require('memory-cache');
-const HttpError = require('@stores.com/http-error');
+const FedEx = require('@stores.com/fedex');
 
 const checkDigit = require('../util/checkDigit');
 
@@ -16,41 +15,13 @@ const SHIPPED_TRACKING_STATUS_CODES = ['AR', 'DP', 'IT', 'OD'];
 // The events from these tracking status codes are filtered because their timestamps are nonsensical: https://www.fedex.com/us/developer/webhelp/ws/2018/US/index.htm#t=wsdvg%2FTracking_Shipments.htm%23Tracking_Statusbc-5&rhtocid=_26_0_4
 const TRACKING_STATUS_CODES_BLACKLIST = ['PU', 'PX'];
 
-function FedEx(args) {
-    const options = Object.assign({
-        url: 'https://apis.fedex.com'
-    }, args);
+function FedExCarrier(args) {
+    const fedEx = new FedEx(args);
 
-    this.getAccessToken = async () => {
-        const key = args.api_key;
-        const cachedAccessToken = cache.get(key);
-
-        if (cachedAccessToken) {
-            return cachedAccessToken;
-        }
-
-        // URLSearchParams as the body reproduces request's `form` option, including
-        // the application/x-www-form-urlencoded content type.
-        const response = await fetch(`${options.url}/oauth/token`, {
-            body: new URLSearchParams({
-                client_id: args.api_key,
-                client_secret: args.secret_key,
-                grant_type: 'client_credentials'
-            }),
-            method: 'POST',
-            signal: AbortSignal.timeout(30000)
-        });
-
-        if (response.status !== 200) {
-            throw await HttpError.from(response);
-        }
-
-        const accessToken = await response.json();
-
-        cache.put(key, accessToken, (accessToken.expires_in - 100) * 1000);
-
-        return accessToken;
-    };
+    // @stores.com/fedex handles the OAuth token, including caching it per API key. This stays
+    // exposed because carriers/fedEx.js is deep-requirable and this was part of that surface;
+    // nothing inside Bloodhound calls it.
+    this.getAccessToken = fedEx.getAccessToken;
 
     this.isTrackingNumberValid = (trackingNumber) => {
         // Remove whitespace
@@ -108,53 +79,29 @@ function FedEx(args) {
             _options.minDate = new Date(0);
         }
 
-        const accessToken = await this.getAccessToken();
-
+        // @stores.com/fedex has no retry of its own, and a tracking lookup is a read, so
+        // retrying it is safe.
         const trackReply = await async.retry(async () => {
-            const response = await fetch(`${options.url}/track/v1/trackingnumbers`, {
-                body: JSON.stringify({
-                    includeDetailedScans: true,
-                    trackingInfo: [
-                        {
-                            trackingNumberInfo: {
-                                trackingNumber: trackingNumber
-                            }
+            const trackResponse = await fedEx.trackByTrackingNumber({
+                includeDetailedScans: true,
+                trackingInfo: [
+                    {
+                        trackingNumberInfo: {
+                            trackingNumber: trackingNumber
                         }
-                    ]
-                }),
-                headers: {
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Authorization': `Bearer ${accessToken.access_token}`,
-                    'Content-Type': 'application/json'
-                },
-                method: 'POST',
-                signal: AbortSignal.timeout(30000)
+                    }
+                ]
             });
 
-            const text = await response.text();
-            let trackResponse;
-
-            try {
-                trackResponse = JSON.parse(text);
-            } catch {
-                // request() handed a non-JSON error page back as a raw string, which
-                // then fell through as a success with no events. Surface it instead.
-                throw await HttpError.from(response);
-            }
-
-            // FedEx reports per-shipment problems in output.alerts on an otherwise
-            // successful response, and those messages say more than the status line,
-            // so they're checked before the status.
+            // FedEx reports per-shipment problems in output.alerts on an otherwise successful
+            // response. @stores.com/fedex only rejects on the top-level errors[] envelope, so
+            // interpreting the alerts is left to us.
             if (trackResponse?.output?.alerts?.length) {
                 const warnings = trackResponse.output.alerts.filter(alert => alert.alertType === 'WARNING');
 
                 if (warnings.length) {
                     throw new Error(warnings.map(warning => `${warning.code}: ${warning.message}`).join(', '));
                 }
-            }
-
-            if (!response.ok) {
-                throw await HttpError.from(response, trackResponse);
             }
 
             return trackResponse;
@@ -233,4 +180,4 @@ function FedEx(args) {
     };
 }
 
-module.exports = FedEx;
+module.exports = FedExCarrier;

@@ -2315,5 +2315,66 @@ test('FedEx', async (t) => {
                 return true;
             });
         });
+
+        // @stores.com/fedex does not retry, so the `async.retry` in carriers/fedEx.js is the
+        // only thing keeping a transient failure from failing the lookup. Nothing asserted it
+        // before, which meant dropping the wrapper during the swap would have gone unnoticed.
+        await t.test('should retry a failed tracking request', async () => {
+            const fedEx = new FedEx({ api_key: 'retry-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
+
+            const fetchMock = t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                trackingRequests++;
+
+                if (trackingRequests === 1) {
+                    return Promise.resolve(new Response(JSON.stringify({ errors: [{ code: 'INTERNAL.SERVER.ERROR', message: 'We encountered an unexpected error' }] }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 500
+                    }));
+                }
+
+                return Promise.resolve(new Response(JSON.stringify(trackingPayload), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            const actual = await fedEx.track('449044304137821');
+
+            assert.strictEqual(trackingRequests, 2);
+            assert.strictEqual(fetchMock.mock.calls.length, 3);
+            assert.deepStrictEqual(actual.events, []);
+        });
+
+        // A non-JSON body on a 200 used to arrive as a raw string that parsed to nothing and
+        // returned an empty `events` array, indistinguishable from a shipment with no scans.
+        // The error class is @stores.com/fedex's to choose; what matters here is that the
+        // lookup fails rather than reporting success.
+        await t.test('should reject when the tracking response is not JSON', async () => {
+            const fedEx = new FedEx({ api_key: 'non-json-key', secret_key: 'test-secret' });
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                return Promise.resolve(new Response('<html><body>Service Unavailable</body></html>', {
+                    headers: { 'content-type': 'text/html' },
+                    status: 200
+                }));
+            });
+
+            await assert.rejects(() => fedEx.track('449044304137821'));
+        });
     });
 });

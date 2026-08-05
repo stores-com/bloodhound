@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changed
+- FedEx: `carriers/fedEx.js` now gets its OAuth token and makes its tracking request through `@stores.com/fedex` (`~0.5.1`) instead of calling `https://apis.fedex.com` itself. The wire calls are the same two requests to the same endpoints with the same 30 second timeout, and everything Bloodhound-specific stays here: `isTrackingNumberValid()`, the `output.alerts` WARNING check, the `async.retry` wrapper, and all of the event normalization. `bloodhound.track()` returns the same shape, and the `fedEx: { api_key, secret_key, url }` options are unchanged
+- **FedEx error shape on two narrow paths.** A 200 response with a non-JSON body — an HTML error page, which is what motivated the `text()`/`JSON.parse` guard this replaces — now rejects with the `SyntaxError` from `response.json()` rather than an `@stores.com/http-error`. It still rejects rather than returning an empty `events` array, which is the property that matters and is now covered by a test that does not pin the error class. Separately, a non-2xx response that carries `output.alerts` now rejects with `HttpError` instead of the alert text, because `@stores.com/fedex` checks the status before the body; FedEx's Track API documents alerts as arriving on a 200, so this is not a path we have observed
+- `memory-cache` is no longer a direct dependency — `@stores.com/fedex` owns the token cache now. Nothing changes in an install: `@stores.com/ups`, `@stores.com/usps` and `@stores.com/xpo` already depend on it, so the same `memory-cache@0.2.0` is still deduped into the tree
+
 ## [4.1.0] - 2026-08-05
 ### Changed
 - Every carrier's `track()` is now `async` and resolves with the results object instead of taking a `callback(err, data)`. Errors reject rather than arriving as a first argument. `bloodhound.track()` is unaffected — it has returned a promise since 4.0.0 and still throws a `TypeError` if handed a callback — so this only reaches consumers who deep-require a carrier module directly (`require('@stores.com/bloodhound/carriers/ups')`), which is undocumented but resolvable because the package has no `exports` map
