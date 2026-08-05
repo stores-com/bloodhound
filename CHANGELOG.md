@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.1.0] - 2026-08-05
 ### Changed
 - Every carrier's `track()` is now `async` and resolves with the results object instead of taking a `callback(err, data)`. Errors reject rather than arriving as a first argument. `bloodhound.track()` is unaffected — it has returned a promise since 4.0.0 and still throws a `TypeError` if handed a callback — so this only reaches consumers who deep-require a carrier module directly (`require('@stores.com/bloodhound/carriers/ups')`), which is undocumented but resolvable because the package has no `exports` map
 - **BREAKING for deep-require consumers:** `carriers/fedEx.js`'s `getAccessToken()` is `async` and returns the token instead of taking a callback
