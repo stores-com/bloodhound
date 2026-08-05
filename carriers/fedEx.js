@@ -21,37 +21,35 @@ function FedEx(args) {
         url: 'https://apis.fedex.com'
     }, args);
 
-    this.getAccessToken = (callback) => {
+    this.getAccessToken = async () => {
         const key = args.api_key;
-        const accessToken = cache.get(key);
+        const cachedAccessToken = cache.get(key);
 
-        if (accessToken) {
-            return callback(null, accessToken);
+        if (cachedAccessToken) {
+            return cachedAccessToken;
         }
 
-        (async () => {
-            // URLSearchParams as the body reproduces request's `form` option, including
-            // the application/x-www-form-urlencoded content type.
-            const response = await fetch(`${options.url}/oauth/token`, {
-                body: new URLSearchParams({
-                    client_id: args.api_key,
-                    client_secret: args.secret_key,
-                    grant_type: 'client_credentials'
-                }),
-                method: 'POST',
-                signal: AbortSignal.timeout(30000)
-            });
+        // URLSearchParams as the body reproduces request's `form` option, including
+        // the application/x-www-form-urlencoded content type.
+        const response = await fetch(`${options.url}/oauth/token`, {
+            body: new URLSearchParams({
+                client_id: args.api_key,
+                client_secret: args.secret_key,
+                grant_type: 'client_credentials'
+            }),
+            method: 'POST',
+            signal: AbortSignal.timeout(30000)
+        });
 
-            if (response.status !== 200) {
-                throw await HttpError.from(response);
-            }
+        if (response.status !== 200) {
+            throw await HttpError.from(response);
+        }
 
-            return await response.json();
-        })().then(accessToken => {
-            cache.put(key, accessToken, (accessToken.expires_in - 100) * 1000);
+        const accessToken = await response.json();
 
-            callback(null, accessToken);
-        }, callback);
+        cache.put(key, accessToken, (accessToken.expires_in - 100) * 1000);
+
+        return accessToken;
     };
 
     this.isTrackingNumberValid = (trackingNumber) => {
@@ -105,147 +103,133 @@ function FedEx(args) {
         return false;
     };
 
-    this.track = (trackingNumber, _options, callback) => {
-        // Options are optional
-        if (typeof _options === 'function') {
-            callback = _options;
-            _options = {};
-        }
-
+    this.track = async (trackingNumber, _options = {}) => {
         if (!_options.minDate) {
             _options.minDate = new Date(0);
         }
 
-        this.getAccessToken((err, accessToken) => {
-            if (err) {
-                return callback(err);
+        const accessToken = await this.getAccessToken();
+
+        const trackReply = await async.retry(async () => {
+            const response = await fetch(`${options.url}/track/v1/trackingnumbers`, {
+                body: JSON.stringify({
+                    includeDetailedScans: true,
+                    trackingInfo: [
+                        {
+                            trackingNumberInfo: {
+                                trackingNumber: trackingNumber
+                            }
+                        }
+                    ]
+                }),
+                headers: {
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Authorization': `Bearer ${accessToken.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                method: 'POST',
+                signal: AbortSignal.timeout(30000)
+            });
+
+            const text = await response.text();
+            let trackResponse;
+
+            try {
+                trackResponse = JSON.parse(text);
+            } catch {
+                // request() handed a non-JSON error page back as a raw string, which
+                // then fell through as a success with no events. Surface it instead.
+                throw await HttpError.from(response);
             }
 
-            async.retry(async () => {
-                const response = await fetch(`${options.url}/track/v1/trackingnumbers`, {
-                    body: JSON.stringify({
-                        includeDetailedScans: true,
-                        trackingInfo: [
-                            {
-                                trackingNumberInfo: {
-                                    trackingNumber: trackingNumber
-                                }
-                            }
-                        ]
-                    }),
-                    headers: {
-                        'Accept-Encoding': 'gzip, deflate',
-                        'Authorization': `Bearer ${accessToken.access_token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    method: 'POST',
-                    signal: AbortSignal.timeout(30000)
-                });
+            // FedEx reports per-shipment problems in output.alerts on an otherwise
+            // successful response, and those messages say more than the status line,
+            // so they're checked before the status.
+            if (trackResponse?.output?.alerts?.length) {
+                const warnings = trackResponse.output.alerts.filter(alert => alert.alertType === 'WARNING');
 
-                const text = await response.text();
-                let trackResponse;
-
-                try {
-                    trackResponse = JSON.parse(text);
-                } catch {
-                    // request() handed a non-JSON error page back as a raw string, which
-                    // then fell through as a success with no events. Surface it instead.
-                    throw await HttpError.from(response);
+                if (warnings.length) {
+                    throw new Error(warnings.map(warning => `${warning.code}: ${warning.message}`).join(', '));
                 }
+            }
 
-                // FedEx reports per-shipment problems in output.alerts on an otherwise
-                // successful response, and those messages say more than the status line,
-                // so they're checked before the status.
-                if (trackResponse?.output?.alerts?.length) {
-                    const warnings = trackResponse.output.alerts.filter(alert => alert.alertType === 'WARNING');
+            if (!response.ok) {
+                throw await HttpError.from(response, trackResponse);
+            }
 
-                    if (warnings.length) {
-                        throw new Error(warnings.map(warning => `${warning.code}: ${warning.message}`).join(', '));
-                    }
-                }
-
-                if (!response.ok) {
-                    throw await HttpError.from(response, trackResponse);
-                }
-
-                return trackResponse;
-            }, (err, trackReply) => {
-                if (err) {
-                    return callback(err);
-                }
-
-                const results = {
-                    carrier: 'FedEx',
-                    events: [],
-                    raw: trackReply
-                };
-                // Extract the first tracking result from a nested FedEx tracking respons
-                const trackResult = trackReply?.output?.completeTrackResults?.[0]?.trackResults?.[0];
-                // Extract estimated delivery window if available
-                const timeWindow = trackResult?.estimatedDeliveryTimeWindow;
-
-                // Check if a time window is available
-                if (timeWindow?.window?.begins && timeWindow?.window?.ends) {
-                    results.estimatedDeliveryDate = {
-                        earliest: new Date(timeWindow.window.begins),
-                        latest: new Date(timeWindow.window.ends)
-                    };
-                }
-
-                // Ensure track reply has events
-                if (!trackReply?.output?.completeTrackResults[0]?.trackResults[0]?.scanEvents?.length) {
-                    return callback(null, results);
-                }
-                trackReply?.output?.completeTrackResults?.[0]?.trackResults?.[0]?.scanEvents.forEach(e => {
-                    if (TRACKING_STATUS_CODES_BLACKLIST.includes(e.eventType)) {
-                        return;
-                    }
-
-                    const event = {
-                        address: {
-                            city: e?.scanLocation?.city,
-                            country: e?.scanLocation?.countryCode,
-                            state: e?.scanLocation?.stateOrProvinceCode,
-                            zip: e?.scanLocation?.postalCode
-                        },
-                        date: new Date(e.date),
-                        description: e.eventDescription
-                    };
-
-                    // Ensure event is after minDate (used to prevent data from reused tracking numbers)
-                    if (event.date < _options.minDate) {
-                        return;
-                    }
-
-                    if (e.exceptionDescription) {
-                        event.details = e.exceptionDescription;
-                    }
-
-                    // Remove blacklisted words
-                    if (event.address.city) {
-                        event.address.city = event.address.city.replace(CITY_BLACKLIST, '').trim();
-                    }
-
-                    if (DELIVERED_TRACKING_STATUS_CODES.includes(e.eventType)) {
-                        results.deliveredAt = new Date(e.date);
-                    }
-
-                    if (SHIPPED_TRACKING_STATUS_CODES.includes(e.eventType)) {
-                        results.shippedAt = new Date(e.date);
-                    }
-
-                    results.events.push(event);
-                });
-                // Add url to carrier tracking page
-                results.url = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(trackingNumber)}`;
-
-                if (!results.shippedAt && results.deliveredAt) {
-                    results.shippedAt = results.deliveredAt;
-                }
-
-                callback(null, results);
-            });
+            return trackResponse;
         });
+
+        const results = {
+            carrier: 'FedEx',
+            events: [],
+            raw: trackReply
+        };
+        // Extract the first tracking result from a nested FedEx tracking respons
+        const trackResult = trackReply?.output?.completeTrackResults?.[0]?.trackResults?.[0];
+        // Extract estimated delivery window if available
+        const timeWindow = trackResult?.estimatedDeliveryTimeWindow;
+
+        // Check if a time window is available
+        if (timeWindow?.window?.begins && timeWindow?.window?.ends) {
+            results.estimatedDeliveryDate = {
+                earliest: new Date(timeWindow.window.begins),
+                latest: new Date(timeWindow.window.ends)
+            };
+        }
+
+        // Ensure track reply has events
+        if (!trackReply?.output?.completeTrackResults[0]?.trackResults[0]?.scanEvents?.length) {
+            return results;
+        }
+        trackReply?.output?.completeTrackResults?.[0]?.trackResults?.[0]?.scanEvents.forEach(e => {
+            if (TRACKING_STATUS_CODES_BLACKLIST.includes(e.eventType)) {
+                return;
+            }
+
+            const event = {
+                address: {
+                    city: e?.scanLocation?.city,
+                    country: e?.scanLocation?.countryCode,
+                    state: e?.scanLocation?.stateOrProvinceCode,
+                    zip: e?.scanLocation?.postalCode
+                },
+                date: new Date(e.date),
+                description: e.eventDescription
+            };
+
+            // Ensure event is after minDate (used to prevent data from reused tracking numbers)
+            if (event.date < _options.minDate) {
+                return;
+            }
+
+            if (e.exceptionDescription) {
+                event.details = e.exceptionDescription;
+            }
+
+            // Remove blacklisted words
+            if (event.address.city) {
+                event.address.city = event.address.city.replace(CITY_BLACKLIST, '').trim();
+            }
+
+            if (DELIVERED_TRACKING_STATUS_CODES.includes(e.eventType)) {
+                results.deliveredAt = new Date(e.date);
+            }
+
+            if (SHIPPED_TRACKING_STATUS_CODES.includes(e.eventType)) {
+                results.shippedAt = new Date(e.date);
+            }
+
+            results.events.push(event);
+        });
+        // Add url to carrier tracking page
+        results.url = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(trackingNumber)}`;
+
+        if (!results.shippedAt && results.deliveredAt) {
+            results.shippedAt = results.deliveredAt;
+        }
+
+        return results;
     };
 }
 

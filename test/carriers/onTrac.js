@@ -442,9 +442,7 @@ test('OnTrac', { timeout: 30000 }, async (t) => {
                 }));
             });
 
-            const actual = await new Promise((resolve, reject) => {
-                onTrac.track('1ls tes t000 00003', (err, data) => err ? reject(err) : resolve(data));
-            });
+            const actual = await onTrac.track('1ls tes t000 00003');
 
             assert.strictEqual(fetchMock.mock.calls[0].arguments[0], 'https://webtrack.ontrac.com/PackageServices/tracking/1LSTEST00000003');
             assert.strictEqual(actual.url, 'https://www.ontrac.com/tracking/?number=1LSTEST00000003');

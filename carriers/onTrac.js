@@ -42,12 +42,7 @@ function OnTrac() {
         return false;
     };
 
-    this.track = async (trackingNumber, _options, callback) => {
-        // Options are optional
-        if (typeof _options === 'function') {
-            callback = _options;
-        }
-
+    this.track = async (trackingNumber) => {
         // Clean tracking number
         trackingNumber = trackingNumber.replace(/\s/g, '').toUpperCase();
 
@@ -57,82 +52,78 @@ function OnTrac() {
             url: `https://www.ontrac.com/tracking/?number=${trackingNumber}`
         };
 
-        try {
-            const json = await async.retry(async () => {
-                const response = await fetch(`https://webtrack.ontrac.com/PackageServices/tracking/${trackingNumber}`, {
-                    signal: AbortSignal.timeout(30000)
-                });
-
-                // 404 means the tracking number was not found
-                if (response.status === 404) {
-                    return null;
-                }
-
-                if (!response.ok) {
-                    throw await HttpError.from(response);
-                }
-
-                return await response.json();
+        const json = await async.retry(async () => {
+            const response = await fetch(`https://webtrack.ontrac.com/PackageServices/tracking/${trackingNumber}`, {
+                signal: AbortSignal.timeout(30000)
             });
 
-            results.raw = json;
-
-            if (!json) {
-                return callback(null, results);
+            // 404 means the tracking number was not found
+            if (response.status === 404) {
+                return null;
             }
 
-            const shipment = json?.Packages?.[0];
-
-            if (!shipment) {
-                return callback(null, results);
+            if (!response.ok) {
+                throw await HttpError.from(response);
             }
 
-            // Parse estimated delivery date
-            if (shipment.UtcExpectedDeliveryDateTime) {
-                const estimatedDeliveryDate = new Date(shipment.UtcExpectedDeliveryDateTime);
+            return await response.json();
+        });
 
-                results.estimatedDeliveryDate = {
-                    earliest: estimatedDeliveryDate,
-                    latest: estimatedDeliveryDate
-                };
-            }
+        results.raw = json;
 
-            if (!shipment.Events) {
-                return callback(null, results);
-            }
-
-            // Sort events chronologically (oldest first)
-            shipment.Events.sort((a, b) => new Date(a.UtcEventDateTime) - new Date(b.UtcEventDateTime));
-
-            for (const event of shipment.Events) {
-                const eventDate = new Date(event.UtcEventDateTime);
-
-                results.events.push({
-                    address: {
-                        city: event.City,
-                        country: event.Country,
-                        state: event.State,
-                        zip: event.PostalCode
-                    },
-                    date: eventDate,
-                    description: event.EventShortDescription
-                });
-
-                // Set shipped date from first shipping event
-                if (SHIPPED_EVENT_CODES.includes(event.EventCode) && !results.shippedAt) {
-                    results.shippedAt = eventDate;
-                }
-
-                // Set delivered date from delivery event
-                if (DELIVERED_EVENT_CODES.includes(event.EventCode)) {
-                    results.deliveredAt = eventDate;
-                }
-            }
-
-            callback(null, results);
-        } catch (err) {
-            callback(err);
+        if (!json) {
+            return results;
         }
+
+        const shipment = json?.Packages?.[0];
+
+        if (!shipment) {
+            return results;
+        }
+
+        // Parse estimated delivery date
+        if (shipment.UtcExpectedDeliveryDateTime) {
+            const estimatedDeliveryDate = new Date(shipment.UtcExpectedDeliveryDateTime);
+
+            results.estimatedDeliveryDate = {
+                earliest: estimatedDeliveryDate,
+                latest: estimatedDeliveryDate
+            };
+        }
+
+        if (!shipment.Events) {
+            return results;
+        }
+
+        // Sort events chronologically (oldest first)
+        shipment.Events.sort((a, b) => new Date(a.UtcEventDateTime) - new Date(b.UtcEventDateTime));
+
+        for (const event of shipment.Events) {
+            const eventDate = new Date(event.UtcEventDateTime);
+
+            results.events.push({
+                address: {
+                    city: event.City,
+                    country: event.Country,
+                    state: event.State,
+                    zip: event.PostalCode
+                },
+                date: eventDate,
+                description: event.EventShortDescription
+            });
+
+            // Set shipped date from first shipping event
+            if (SHIPPED_EVENT_CODES.includes(event.EventCode) && !results.shippedAt) {
+                results.shippedAt = eventDate;
+            }
+
+            // Set delivered date from delivery event
+            if (DELIVERED_EVENT_CODES.includes(event.EventCode)) {
+                results.deliveredAt = eventDate;
+            }
+        }
+
+        return results;
     };
 }
 

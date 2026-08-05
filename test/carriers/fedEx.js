@@ -10,7 +10,7 @@ const FedEx = require('../../carriers/fedEx');
 // https://developer.fedex.com/api/en-us/guides/api-reference.html#mocktrackingnumbersforfedexground%C2%AEeconomy(formerlyknownasfedexsmartpost%C2%AE)
 test('FedEx', async (t) => {
 
-    t.test('fedEx.isTrackingNumberValid', { concurrency: true }, async (t) => {
+    await t.test('fedEx.isTrackingNumberValid', { concurrency: true }, async (t) => {
         const fedEx = new FedEx();
 
         const validTrackingNumbers = [
@@ -29,7 +29,7 @@ test('FedEx', async (t) => {
             'DT771613423732'
         ];
 
-        t.test('should detect valid FedEx tracking numbers', () => {
+        await t.test('should detect valid FedEx tracking numbers', () => {
             validTrackingNumbers.forEach(trackingNumber => {
                 if (!fedEx.isTrackingNumberValid(trackingNumber)) {
                     assert.fail(`${trackingNumber} is not recognized as a valid FedEx tracking number`);
@@ -52,7 +52,7 @@ test('FedEx', async (t) => {
         });
 
         await t.test('FedEx Express and Ground', async (t) => {
-            t.test('Shipment information sent to FedEx', async () => {
+            await t.test('Shipment information sent to FedEx', async () => {
                 const actual = await bloodhound.track('449044304137821', 'fedex');
 
                 const expected = {
@@ -77,7 +77,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Tendered', async () => {
+            await t.test('Tendered', async () => {
                 const actual = await bloodhound.track('149331877648230', 'fedex');
 
                 const expected = {
@@ -112,7 +112,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Picked Up', async () => {
+            await t.test('Picked Up', async () => {
                 const actual = await bloodhound.track('020207021381215', 'fedex');
 
                 const expected = {
@@ -137,7 +137,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Arrived at FedEx location', async () => {
+            await t.test('Arrived at FedEx location', async () => {
                 const actual = await bloodhound.track('403934084723025', 'fedex');
 
                 const expected = {
@@ -173,7 +173,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('At local FedEx facility', async () => {
+            await t.test('At local FedEx facility', async () => {
                 const actual = await bloodhound.track('920241085725456', 'fedex');
 
                 const expected = {
@@ -249,7 +249,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('At destination sort facility', async () => {
+            await t.test('At destination sort facility', async () => {
                 const actual = await bloodhound.track('568838414941', 'fedex');
 
                 const expected = {
@@ -305,7 +305,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Departed FedEx location', async () => {
+            await t.test('Departed FedEx location', async () => {
                 const actual = await bloodhound.track('039813852990618', 'fedex');
 
                 const expected = {
@@ -351,7 +351,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('On FedEx vehicle for delivery', async () => {
+            await t.test('On FedEx vehicle for delivery', async () => {
                 const actual = await bloodhound.track('231300687629630', 'fedex');
 
                 const expected = {
@@ -467,7 +467,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('International shipment release', async () => {
+            await t.test('International shipment release', async () => {
                 const actual = await bloodhound.track('797806677146', 'fedex');
 
                 const expected = {
@@ -573,7 +573,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Customer not available or business closed (Delivery Exception 007)', async () => {
+            await t.test('Customer not available or business closed (Delivery Exception 007)', async () => {
                 const actual = await bloodhound.track('377101283611590', 'fedex');
 
                 const expected = {
@@ -680,7 +680,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Local Delivery Restriction (Delivery Exception 083)', async () => {
+            await t.test('Local Delivery Restriction (Delivery Exception 083)', async () => {
                 const actual = await bloodhound.track('852426136339213', 'fedex');
 
                 const expected = {
@@ -798,7 +798,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Incorrect Address (Delivery Exception 03)', async () => {
+            await t.test('Incorrect Address (Delivery Exception 03)', async () => {
                 const actual = await bloodhound.track('797615467620', 'fedex');
 
                 const expected = {
@@ -895,7 +895,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Unable to Deliver (Shipment Exception 099)', async () => {
+            await t.test('Unable to Deliver (Shipment Exception 099)', async () => {
                 const actual = await bloodhound.track('957794015041323', 'fedex');
 
                 const expected = {
@@ -984,7 +984,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Returned to Sender/Shipper', async () => {
+            await t.test('Returned to Sender/Shipper', async () => {
                 const actual = await bloodhound.track('076288115212522', 'fedex');
 
                 const expected = {
@@ -1131,7 +1131,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Clearance delay (International)', async () => {
+            await t.test('Clearance delay (International)', async () => {
                 const actual = await bloodhound.track('581190049992', 'fedex');
 
                 const expected = {
@@ -1250,7 +1250,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Delivered', async () => {
+            await t.test('Delivered', async () => {
                 const actual = await bloodhound.track('122816215025810', 'fedex');
 
                 const expected = {
@@ -1368,7 +1368,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Hold at Location', async () => {
+            await t.test('Hold at Location', async () => {
                 const actual = await bloodhound.track('843119172384577', 'fedex');
 
                 const expected = {
@@ -1561,7 +1561,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Shipment Canceled', async () => {
+            await t.test('Shipment Canceled', async () => {
                 const actual = await bloodhound.track('070358180009382', 'fedex');
 
                 const expected = {
@@ -1599,7 +1599,7 @@ test('FedEx', async (t) => {
         });
 
         await t.test('FedEx SmartPost', async (t) => {
-            t.test('Shipment information sent to FedEx', async () => {
+            await t.test('Shipment information sent to FedEx', async () => {
                 const actual = await bloodhound.track('02394653001023698293', 'fedex');
 
                 const expected = {
@@ -1624,7 +1624,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('In transit', async () => {
+            await t.test('In transit', async () => {
                 const actual = await bloodhound.track('61292701078443410536');
 
                 const expected = {
@@ -1680,7 +1680,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Out for delivery', async () => {
+            await t.test('Out for delivery', async () => {
                 const actual = await bloodhound.track('61292700726653585070', 'fedex');
 
                 const expected = {
@@ -1759,7 +1759,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Delivered', async () => {
+            await t.test('Delivered', async () => {
                 const actual = await bloodhound.track('02394653018047202719', 'fedex');
 
                 const expected = {
@@ -1886,7 +1886,7 @@ test('FedEx', async (t) => {
 
         // new API has no Mock Tracking Numbers for FedEx Freight LTL and our numbers have been reused/recycled
         await t.test('FedEx Freight LTL', { skip: true }, async (t) => {
-            t.test('Picked Up', async () => {
+            await t.test('Picked Up', async () => {
                 const actual = await bloodhound.track('2873008051', 'fedex');
 
                 const expected = {
@@ -1910,7 +1910,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('In transit', async () => {
+            await t.test('In transit', async () => {
                 const actual = await bloodhound.track('1960003216', 'fedex');
 
                 const expected = {
@@ -1946,7 +1946,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Weather delay (Shipment Exception)', async () => {
+            await t.test('Weather delay (Shipment Exception)', async () => {
                 const actual = await bloodhound.track('1208673524', 'fedex');
 
                 const expected = {
@@ -2012,7 +2012,7 @@ test('FedEx', async (t) => {
                 assert.deepStrictEqual(actual, expected);
             });
 
-            t.test('Delivered', async () => {
+            await t.test('Delivered', async () => {
                 const actual = await bloodhound.track('1636374036', 'fedex');
 
                 const expected = {
@@ -2234,9 +2234,7 @@ test('FedEx', async (t) => {
                 }));
             });
 
-            await new Promise((resolve, reject) => {
-                fedEx.track('449044304137821', (err, data) => err ? reject(err) : resolve(data));
-            });
+            await fedEx.track('449044304137821');
 
             assert.strictEqual(fetchMock.mock.calls[0].arguments[0], 'https://apis.fedex.com/oauth/token');
 
@@ -2262,9 +2260,7 @@ test('FedEx', async (t) => {
                 }));
             });
 
-            await new Promise((resolve, reject) => {
-                fedEx.track('449044304137821', (err, data) => err ? reject(err) : resolve(data));
-            });
+            await fedEx.track('449044304137821');
 
             assert.strictEqual(fetchMock.mock.calls[1].arguments[0], 'https://apis.fedex.com/track/v1/trackingnumbers');
             assert.strictEqual(fetchMock.mock.calls[1].arguments[1].headers.Authorization, 'Bearer a-real-looking-token');
@@ -2280,12 +2276,11 @@ test('FedEx', async (t) => {
                 }));
             });
 
-            const args = await new Promise((resolve) => {
-                fedEx.track('449044304137821', (...args) => resolve(args));
-            });
+            await assert.rejects(() => fedEx.track('449044304137821'), (err) => {
+                assert.strictEqual(err.cause.status, 401);
 
-            assert.strictEqual(args[0].cause.status, 401);
-            assert.strictEqual(args[1], undefined);
+                return true;
+            });
         });
 
         await t.test('should surface FedEx WARNING alerts as an error', async () => {
@@ -2314,12 +2309,11 @@ test('FedEx', async (t) => {
                 }));
             });
 
-            const args = await new Promise((resolve) => {
-                fedEx.track('449044304137821', (...args) => resolve(args));
-            });
+            await assert.rejects(() => fedEx.track('449044304137821'), (err) => {
+                assert.strictEqual(err.message, 'TRACKING.TRACKINGNUMBER.NOTFOUND: Tracking number cannot be found');
 
-            assert.strictEqual(args[0].message, 'TRACKING.TRACKINGNUMBER.NOTFOUND: Tracking number cannot be found');
-            assert.strictEqual(args[1], undefined);
+                return true;
+            });
         });
     });
 });
