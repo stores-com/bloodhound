@@ -2453,8 +2453,16 @@ test('FedEx', async (t) => {
         // returned an empty `events` array, indistinguishable from a shipment with no scans.
         // The error class is @stores.com/fedex's to choose; what matters here is that the
         // lookup fails rather than reporting success.
-        await t.test('should reject when the tracking response is not JSON', async () => {
+        //
+        // The retry count is asserted because it is the one thing that would change silently.
+        // An HTML body on a 200 is a gateway interposing rather than FedEx answering, which is
+        // transient, and it is retried today only because @stores.com/fedex raises a SyntaxError
+        // with no `cause` for it. If that becomes an HttpError carrying `cause.status` 200 —
+        // which its maintainer intends — the errorFilter above will stop retrying it. This
+        // should fail at that dependency bump rather than change underneath us.
+        await t.test('should reject and retry when the tracking response is not JSON', async () => {
             const fedEx = new FedEx({ api_key: 'non-json-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
 
             t.mock.method(globalThis, 'fetch', (url) => {
                 if (url.endsWith('/oauth/token')) {
@@ -2464,6 +2472,8 @@ test('FedEx', async (t) => {
                     }));
                 }
 
+                trackingRequests++;
+
                 return Promise.resolve(new Response('<html><body>Service Unavailable</body></html>', {
                     headers: { 'content-type': 'text/html' },
                     status: 200
@@ -2471,6 +2481,8 @@ test('FedEx', async (t) => {
             });
 
             await assert.rejects(() => fedEx.track('449044304137821'));
+
+            assert(trackingRequests > 1, `expected the lookup to be retried, got ${trackingRequests} tracking request(s)`);
         });
     });
 });
