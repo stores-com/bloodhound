@@ -20,8 +20,9 @@ function FedExCarrier(args) {
 
     // @stores.com/fedex handles the OAuth token, including caching it per API key. This stays
     // exposed because carriers/fedEx.js is deep-requirable and this was part of that surface;
-    // nothing inside Bloodhound calls it.
-    this.getAccessToken = fedEx.getAccessToken;
+    // nothing inside Bloodhound calls it. Called through rather than assigned across, so it
+    // does not depend on the package's method being safe to detach from its instance.
+    this.getAccessToken = (options) => fedEx.getAccessToken(options);
 
     this.isTrackingNumberValid = (trackingNumber) => {
         // Remove whitespace
@@ -79,33 +80,37 @@ function FedExCarrier(args) {
             _options.minDate = new Date(0);
         }
 
-        // @stores.com/fedex has no retry of its own, and a tracking lookup is a read, so
-        // retrying it is safe.
-        const trackReply = await async.retry(async () => {
-            const trackResponse = await fedEx.trackByTrackingNumber({
-                includeDetailedScans: true,
-                trackingInfo: [
-                    {
-                        trackingNumberInfo: {
-                            trackingNumber: trackingNumber
-                        }
+        // @stores.com/fedex has no retry of its own, and a tracking lookup is a read, so retrying
+        // it is safe. Only a 5xx or an error with no status at all — a transport failure, or a
+        // body that would not parse — is worth a second call. This is deliberately not the
+        // `!(status >= 400 && status < 500)` filter carriers/dhl.js uses: that one asks whether
+        // the failure is a 4xx, and @stores.com/fedex also rejects a 200 carrying a top-level
+        // errors[] envelope, whose status is 200 and which is as deterministic as a 4xx. Asking
+        // for a 5xx instead covers both. It matters more than it looks: trackByTrackingNumber()
+        // fetches the token itself and the package caches it only on success, so unfiltered, a
+        // rejected credential cost five immediate hits to /oauth/token where it used to cost one.
+        const trackReply = await async.retry({ errorFilter: err => err?.cause?.status === undefined || err.cause.status >= 500 }, async () => await fedEx.trackByTrackingNumber({
+            includeDetailedScans: true,
+            trackingInfo: [
+                {
+                    trackingNumberInfo: {
+                        trackingNumber: trackingNumber
                     }
-                ]
-            });
-
-            // FedEx reports per-shipment problems in output.alerts on an otherwise successful
-            // response. @stores.com/fedex only rejects on the top-level errors[] envelope, so
-            // interpreting the alerts is left to us.
-            if (trackResponse?.output?.alerts?.length) {
-                const warnings = trackResponse.output.alerts.filter(alert => alert.alertType === 'WARNING');
-
-                if (warnings.length) {
-                    throw new Error(warnings.map(warning => `${warning.code}: ${warning.message}`).join(', '));
                 }
-            }
+            ]
+        }));
 
-            return trackResponse;
-        });
+        // FedEx reports per-shipment problems in output.alerts on an otherwise successful
+        // response. @stores.com/fedex only rejects on the top-level errors[] envelope, so
+        // interpreting the alerts is left to us. Checked outside the retry: a tracking number
+        // FedEx cannot find is a settled answer, and it used to cost five identical lookups.
+        if (trackReply?.output?.alerts?.length) {
+            const warnings = trackReply.output.alerts.filter(alert => alert.alertType === 'WARNING');
+
+            if (warnings.length) {
+                throw new Error(warnings.map(warning => `${warning.code}: ${warning.message}`).join(', '));
+            }
+        }
 
         const results = {
             carrier: 'FedEx',

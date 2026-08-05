@@ -2285,6 +2285,7 @@ test('FedEx', async (t) => {
 
         await t.test('should surface FedEx WARNING alerts as an error', async () => {
             const fedEx = new FedEx({ api_key: 'warning-alerts-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
 
             t.mock.method(globalThis, 'fetch', (url) => {
                 if (url.endsWith('/oauth/token')) {
@@ -2293,6 +2294,8 @@ test('FedEx', async (t) => {
                         status: 200
                     }));
                 }
+
+                trackingRequests++;
 
                 // FedEx reports this kind of problem on a 200.
                 return Promise.resolve(new Response(JSON.stringify({
@@ -2314,6 +2317,10 @@ test('FedEx', async (t) => {
 
                 return true;
             });
+
+            // The alert is checked outside `async.retry`, so a tracking number FedEx cannot
+            // find costs one lookup rather than five identical ones.
+            assert.strictEqual(trackingRequests, 1);
         });
 
         // @stores.com/fedex does not retry, so the `async.retry` in carriers/fedEx.js is the
@@ -2351,6 +2358,95 @@ test('FedEx', async (t) => {
             assert.strictEqual(trackingRequests, 2);
             assert.strictEqual(fetchMock.mock.calls.length, 3);
             assert.deepStrictEqual(actual.events, []);
+        });
+
+        // @stores.com/fedex requests the token inside trackByTrackingNumber() and caches it only
+        // on success, so the token request sits inside `async.retry` where it used to sit outside
+        // it. Without the errorFilter a rejected credential cost five immediate auth attempts.
+        await t.test('should not retry a rejected credential', async () => {
+            const fedEx = new FedEx({ api_key: 'rejected-credential-key', secret_key: 'test-secret' });
+            let tokenRequests = 0;
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    tokenRequests++;
+                }
+
+                return Promise.resolve(new Response(JSON.stringify({ errors: [{ code: 'NOT.AUTHORIZED.ERROR', message: 'Access token expired' }] }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 401
+                }));
+            });
+
+            await assert.rejects(() => fedEx.track('449044304137821'), (err) => {
+                assert.strictEqual(err.cause.status, 401);
+
+                return true;
+            });
+
+            assert.strictEqual(tokenRequests, 1);
+        });
+
+        await t.test('should not retry a 4xx from the tracking request', async () => {
+            const fedEx = new FedEx({ api_key: 'tracking-4xx-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                trackingRequests++;
+
+                return Promise.resolve(new Response(JSON.stringify({ errors: [{ code: 'TRACKING.TRACKINGNUMBER.EMPTY', message: 'Please provide tracking number' }] }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 400
+                }));
+            });
+
+            await assert.rejects(() => fedEx.track('449044304137821'), (err) => {
+                assert.strictEqual(err.cause.status, 400);
+
+                return true;
+            });
+
+            assert.strictEqual(trackingRequests, 1);
+        });
+
+        // The reason the errorFilter asks for a 5xx rather than reusing carriers/dhl.js's
+        // `!(status >= 400 && status < 500)`: @stores.com/fedex rejects a 200 that carries a
+        // top-level errors[] envelope, and its status is 200, so a 4xx-shaped filter would let
+        // a deterministic business error retry five times.
+        await t.test('should not retry a 200 carrying an errors[] envelope', async () => {
+            const fedEx = new FedEx({ api_key: 'errors-envelope-key', secret_key: 'test-secret' });
+            let trackingRequests = 0;
+
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.endsWith('/oauth/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
+
+                trackingRequests++;
+
+                return Promise.resolve(new Response(JSON.stringify({ errors: [{ code: 'TRACKING.TRACKINGNUMBER.NOTFOUND', message: 'Tracking number cannot be found' }] }), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            await assert.rejects(() => fedEx.track('449044304137821'), (err) => {
+                assert.strictEqual(err.cause.status, 200);
+
+                return true;
+            });
+
+            assert.strictEqual(trackingRequests, 1);
         });
 
         // A non-JSON body on a 200 used to arrive as a raw string that parsed to nothing and
