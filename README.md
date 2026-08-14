@@ -84,6 +84,9 @@ const bloodhound = new Bloodhound({
         api_key: 'abcdefghijklmnopqrstuvwxyz',
         secret_key: 'abcdefghijklmnopqrstuvwxyz'
     },
+    freightClub: {
+        api_token: 'YOUR_FREIGHT_CLUB_API_TOKEN'
+    },
     ups: {
         client_id: 'YOUR_UPS_CLIENT_ID',
         client_secret: 'YOUR_UPS_CLIENT_SECRET'
@@ -115,11 +118,15 @@ The GOFO Express carrier does not require any configuration. It works with GOFO 
 
 The DHL API requires an API key: https://developer.dhl.com.
 
+**freightClub**
+
+The Freight Club API requires an `api_token`, requested under Manage API Tokens in the Freight Club application: https://api.freightclub.com/ApiDoc/index
+
 **defaultTimezone**
 
-Carriers that return timestamps without a UTC offset — currently DHL, Pitney Bowes, USPS, and UPS Mail Innovations — have their event timestamps interpreted in this timezone.
+Carriers that return timestamps without a UTC offset — currently DHL, Freight Club, Pitney Bowes, USPS, and UPS Mail Innovations — have their event timestamps interpreted in this timezone.
 
-If not provided, DHL, Pitney Bowes and USPS use the local machine's timezone, which means the same tracking number can produce different timestamps on different machines. Set it explicitly. UPS uses UTC instead, so a Mail Innovations scan is never interpreted in the timezone of whichever machine happens to be running.
+If not provided, DHL, Freight Club, Pitney Bowes and USPS use the local machine's timezone, which means the same tracking number can produce different timestamps on different machines. Set it explicitly. UPS uses UTC instead, so a Mail Innovations scan is never interpreted in the timezone of whichever machine happens to be running.
 
 ```javascript
 const bloodhound = new Bloodhound({
