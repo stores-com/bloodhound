@@ -1,6 +1,7 @@
 const Amazon = require('./carriers/amazon');
 const DHL = require('./carriers/dhl');
 const FedEx = require('./carriers/fedEx');
+const FreightClub = require('./carriers/freightClub');
 const GOFO = require('./carriers/gofo');
 const OnTrac = require('./carriers/onTrac');
 const PitneyBowes = require('./carriers/pitneyBowes');
@@ -24,6 +25,10 @@ function Bloodhound(options) {
 
     options.dhl.defaultTimezone = defaultTimezone;
 
+    if (options.freightClub) {
+        options.freightClub.defaultTimezone = defaultTimezone;
+    }
+
     if (options.pitneyBowes) {
         options.pitneyBowes.defaultTimezone = defaultTimezone;
     }
@@ -46,6 +51,7 @@ function Bloodhound(options) {
     const amazon = new Amazon(options && options.amazon);
     const dhl = new DHL(options && options.dhl);
     const fedEx = new FedEx(options && options.fedEx);
+    const freightClub = new FreightClub(options && options.freightClub);
     const gofo = new GOFO(options && options.gofo);
     const onTrac = new OnTrac(options && options.onTrac);
     const pitneyBowes = new PitneyBowes(options && options.pitneyBowes);
@@ -60,6 +66,8 @@ function Bloodhound(options) {
             return 'DHL';
         } else if (fedEx.isTrackingNumberValid(trackingNumber)) {
             return 'FedEx';
+        } else if (freightClub.isTrackingNumberValid(trackingNumber)) {
+            return 'Freight Club';
         } else if (gofo.isTrackingNumberValid(trackingNumber)) {
             return 'GOFO';
         } else if (onTrac.isTrackingNumberValid(trackingNumber)) {
@@ -121,6 +129,8 @@ function Bloodhound(options) {
             carrier = dhl;
         } else if (options.carrier === 'fedex') {
             carrier = fedEx;
+        } else if (['freight club', 'freightclub'].includes(options.carrier)) {
+            carrier = freightClub;
         } else if (options.carrier === 'gofo') {
             carrier = gofo;
         } else if (['lasership', 'ontrac'].includes(options.carrier)) {

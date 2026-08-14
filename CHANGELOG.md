@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-08-13
+### Added
+- Freight Club carrier (`carriers/freightClub.js`) via the `freight-club` package (`~0.0.2`), configured with `options.freightClub.api_token`. Tracks by Freight Club tracking number (`FCT` + digits, recognized by `guessCarrier()`); `shippedAt`/`deliveredAt` derive from Freight Club's documented `TrackingCategory` enumeration rather than description strings, and events sort by Freight Club's `SortOrder` before reversing to most-recent-first
+- Freight Club timestamps carry no UTC offset and are interpreted in `defaultTimezone`, like DHL, Pitney Bowes and USPS
+- A tracking number Freight Club doesn't know (or has no scans for yet) answers 400 with `Error Code 8100` in the body — that returns empty `events` instead of rejecting. The code is matched on `err.text` because the body is a bare JSON string, not an `errors[]` envelope, so the `HttpError` message stays `400 Bad Request`
+
 ## [4.1.0] - 2026-08-05
 ### Changed
 - FedEx: auth and HTTP now go through `@stores.com/fedex` (`~0.5.1`) instead of a hand-rolled client. Same endpoints, same 30 second timeout, same response shape. `isTrackingNumberValid()`, the `output.alerts` WARNING check, `async.retry` and all event normalization stay in `carriers/fedEx.js`
