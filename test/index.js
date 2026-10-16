@@ -83,10 +83,6 @@ test('bloodhound.guessCarrier', { concurrency: true }, async (t) => {
         assert.strictEqual(bloodhound.guessCarrier('61299998620341515252'), 'FedEx');
     });
 
-    await t.test('Should guess a Freight Club tracking number', () => {
-        assert.strictEqual(bloodhound.guessCarrier('FCT1009624087737139200'), 'Freight Club');
-    });
-
     await t.test('Should guess a USPS tracking number', () => {
         assert.strictEqual(bloodhound.guessCarrier('9400111699000271800200'), 'USPS');
     });

@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-10-15
+### Removed
+- **BREAKING:** the Freight Club carrier. Freight Club's owner, Cymax, is closing. `options.freightClub` is ignored, `guessCarrier()` no longer returns `'Freight Club'`, and `track()` with carrier `'freight club'` or `'freightclub'` now rejects as an unsupported carrier. The `freight-club` dependency is gone
+
 ## [4.2.0] - 2026-08-13
 ### Added
 - Freight Club carrier (`carriers/freightClub.js`) via the `freight-club` package (`~0.0.2`), configured with `options.freightClub.api_token`. Tracks by Freight Club tracking number (`FCT` + digits, recognized by `guessCarrier()`); `shippedAt`/`deliveredAt` derive from Freight Club's documented `TrackingCategory` enumeration rather than description strings, and events sort by Freight Club's `SortOrder` before reversing to most-recent-first
