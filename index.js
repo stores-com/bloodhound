@@ -1,10 +1,10 @@
 const Amazon = require('./carriers/amazon');
 const DHL = require('./carriers/dhl');
 const FedEx = require('./carriers/fedEx');
-const FreightClub = require('./carriers/freightClub');
 const GOFO = require('./carriers/gofo');
 const OnTrac = require('./carriers/onTrac');
 const PitneyBowes = require('./carriers/pitneyBowes');
+const UniUni = require('./carriers/uniUni');
 const XPO = require('./carriers/xpo');
 const UPS = require('./carriers/ups');
 const USPS = require('./carriers/usps');
@@ -24,10 +24,6 @@ function Bloodhound(options) {
     }
 
     options.dhl.defaultTimezone = defaultTimezone;
-
-    if (options.freightClub) {
-        options.freightClub.defaultTimezone = defaultTimezone;
-    }
 
     if (options.pitneyBowes) {
         options.pitneyBowes.defaultTimezone = defaultTimezone;
@@ -51,10 +47,10 @@ function Bloodhound(options) {
     const amazon = new Amazon(options && options.amazon);
     const dhl = new DHL(options && options.dhl);
     const fedEx = new FedEx(options && options.fedEx);
-    const freightClub = new FreightClub(options && options.freightClub);
     const gofo = new GOFO(options && options.gofo);
     const onTrac = new OnTrac(options && options.onTrac);
     const pitneyBowes = new PitneyBowes(options && options.pitneyBowes);
+    const uniUni = new UniUni(options && options.uniUni);
     const xpo = new XPO(options && options.xpo);
     const ups = new UPS(options && options.ups);
     const usps = new USPS(options && options.usps);
@@ -66,12 +62,12 @@ function Bloodhound(options) {
             return 'DHL';
         } else if (fedEx.isTrackingNumberValid(trackingNumber)) {
             return 'FedEx';
-        } else if (freightClub.isTrackingNumberValid(trackingNumber)) {
-            return 'Freight Club';
         } else if (gofo.isTrackingNumberValid(trackingNumber)) {
             return 'GOFO';
         } else if (onTrac.isTrackingNumberValid(trackingNumber)) {
             return 'OnTrac';
+        } else if (uniUni.isTrackingNumberValid(trackingNumber)) {
+            return 'UniUni';
         } else if (xpo.isTrackingNumberValid(trackingNumber)) {
             return 'XPO';
         } else if (ups.isTrackingNumberValid(trackingNumber)) {
@@ -129,14 +125,14 @@ function Bloodhound(options) {
             carrier = dhl;
         } else if (options.carrier === 'fedex') {
             carrier = fedEx;
-        } else if (['freight club', 'freightclub'].includes(options.carrier)) {
-            carrier = freightClub;
         } else if (options.carrier === 'gofo') {
             carrier = gofo;
         } else if (['lasership', 'ontrac'].includes(options.carrier)) {
             carrier = onTrac;
         } else if (['newgistics', 'pitney bowes'].includes(options.carrier)) {
             carrier = pitneyBowes;
+        } else if (options.carrier === 'uniuni') {
+            carrier = uniUni;
         } else if (options.carrier === 'ups') {
             carrier = ups;
         } else if (options.carrier === 'usps') {

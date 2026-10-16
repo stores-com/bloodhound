@@ -101,14 +101,48 @@ test('XPO', async (t) => {
             }
         });
 
-        await t.test('should return raw data in results', async () => {
-            const actual = await bloodhound.track('235825413', 'xpo');
+        // Mocked: XPO ages PRO numbers out and then answers 404, which returns results without raw
+        await t.test('should return raw data in results', async (t) => {
+            const body = {
+                data: {
+                    shipmentStatusDtls: [{
+                        shipmentStatus: {
+                            dateTime: '2026-10-01T17:00:00Z',
+                            description: 'Delivered',
+                            statusCd: '10'
+                        }
+                    }]
+                }
+            };
 
-            assert(Object.hasOwn(actual, 'raw'));
+            t.mock.method(globalThis, 'fetch', (url) => {
+                if (url.includes('/token')) {
+                    return Promise.resolve(new Response(JSON.stringify({ access_token: 'mock-token', expires_in: 3600, token_type: 'Bearer' }), {
+                        headers: { 'content-type': 'application/json' },
+                        status: 200
+                    }));
+                }
 
-            if (actual.raw) {
-                assert(typeof actual.raw === 'object');
-            }
+                return Promise.resolve(new Response(JSON.stringify(body), {
+                    headers: { 'content-type': 'application/json' },
+                    status: 200
+                }));
+            });
+
+            // A username the live tests do not use, so the mocked token cannot be served from
+            // or written to their memory-cache entry, which is keyed `xpo_${username}`
+            const mocked = new Bloodhound({
+                xpo: {
+                    api_key: 'test-api-key',
+                    password: 'test-password',
+                    username: 'test-username-mocked-raw'
+                }
+            });
+
+            const actual = await mocked.track('235825413', 'xpo');
+
+            assert.deepStrictEqual(actual.raw, body);
+            assert.strictEqual(actual.deliveredAt.toISOString(), '2026-10-01T17:00:00.000Z');
         });
 
         await t.test('should sort events chronologically', async () => {

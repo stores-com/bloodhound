@@ -7,7 +7,7 @@
 
 ![Elvis Presley & Bloodhound - Photo - 1964](https://res.cloudinary.com/mediocre/image/upload/v1562632498/rpkudq0xpyysdty9nkzk.jpg)
 
-Bloodhound is a Node.js package that allows you to retrieve tracking data from shipping carriers (Amazon, DHL, FedEx, GOFO, UPS, USPS, XPO) in a common format.
+Bloodhound is a Node.js package that allows you to retrieve tracking data from shipping carriers (Amazon, DHL, FedEx, GOFO, UniUni, UPS, USPS, XPO) in a common format.
 
 This module was inspired by the excellent `shipit` module. We built Bloodhound to provide better support for parsing of timestamps (read more below).
 
@@ -37,6 +37,7 @@ Bloodhound also examines each of the activity/movement/scan events for "shipped"
 - DHL
 - FedEx
 - GOFO
+- UniUni
 - UPS
 - USPS
 - XPO
@@ -84,9 +85,6 @@ const bloodhound = new Bloodhound({
         api_key: 'abcdefghijklmnopqrstuvwxyz',
         secret_key: 'abcdefghijklmnopqrstuvwxyz'
     },
-    freightClub: {
-        api_token: 'YOUR_FREIGHT_CLUB_API_TOKEN'
-    },
     ups: {
         client_id: 'YOUR_UPS_CLIENT_ID',
         client_secret: 'YOUR_UPS_CLIENT_SECRET'
@@ -114,19 +112,19 @@ The Amazon Shipping carrier does not require any configuration. It works with Am
 
 The GOFO Express carrier does not require any configuration. It works with GOFO tracking numbers (CR + 12 digits format).
 
+**uniUni**
+
+The UniUni carrier does not require any configuration. It works with UniUni tracking numbers (UUS + 16 letters and digits format). It uses the same lookup as UniUni's public tracking page rather than an issued API key, so UniUni can change it without notice.
+
 **dhl**
 
 The DHL API requires an API key: https://developer.dhl.com.
 
-**freightClub**
-
-The Freight Club API requires an `api_token`, requested under Manage API Tokens in the Freight Club application: https://api.freightclub.com/ApiDoc/index
-
 **defaultTimezone**
 
-Carriers that return timestamps without a UTC offset — currently DHL, Freight Club, Pitney Bowes, USPS, and UPS Mail Innovations — have their event timestamps interpreted in this timezone.
+Carriers that return timestamps without a UTC offset — currently DHL, Pitney Bowes, USPS, and UPS Mail Innovations — have their event timestamps interpreted in this timezone.
 
-If not provided, DHL, Freight Club, Pitney Bowes and USPS use the local machine's timezone, which means the same tracking number can produce different timestamps on different machines. Set it explicitly. UPS uses UTC instead, so a Mail Innovations scan is never interpreted in the timezone of whichever machine happens to be running.
+If not provided, DHL, Pitney Bowes and USPS use the local machine's timezone, which means the same tracking number can produce different timestamps on different machines. Set it explicitly. UPS uses UTC instead, so a Mail Innovations scan is never interpreted in the timezone of whichever machine happens to be running.
 
 ```javascript
 const bloodhound = new Bloodhound({

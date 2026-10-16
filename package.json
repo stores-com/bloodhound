@@ -7,7 +7,6 @@
         "@stores.com/xpo": "~0.2.2",
         "async": "~3.2.0",
         "dhl-ecommerce-solutions": "~1.0.0",
-        "freight-club": "~0.0.2",
         "moment-timezone": "~0.6.3",
         "pitney-bowes": "~1.0.0"
     },
@@ -24,7 +23,6 @@
         "amazon",
         "dhl",
         "fedex",
-        "freight-club",
         "gofo",
         "logistics",
         "newgistics",
@@ -32,6 +30,7 @@
         "pitney-bowes",
         "shipping",
         "tracking",
+        "uniuni",
         "ups",
         "usps",
         "xpo"
@@ -51,5 +50,5 @@
         "test": "node --test --test-force-exit --test-reporter=spec",
         "test:only": "node --test --test-force-exit --test-only --test-reporter=spec"
     },
-    "version": "4.2.0"
+    "version": "5.1.0"
 }
