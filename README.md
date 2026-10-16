@@ -7,7 +7,7 @@
 
 ![Elvis Presley & Bloodhound - Photo - 1964](https://res.cloudinary.com/mediocre/image/upload/v1562632498/rpkudq0xpyysdty9nkzk.jpg)
 
-Bloodhound is a Node.js package that allows you to retrieve tracking data from shipping carriers (Amazon, DHL, FedEx, GOFO, UPS, USPS, XPO) in a common format.
+Bloodhound is a Node.js package that allows you to retrieve tracking data from shipping carriers (Amazon, DHL, FedEx, GOFO, UniUni, UPS, USPS, XPO) in a common format.
 
 This module was inspired by the excellent `shipit` module. We built Bloodhound to provide better support for parsing of timestamps (read more below).
 
@@ -37,6 +37,7 @@ Bloodhound also examines each of the activity/movement/scan events for "shipped"
 - DHL
 - FedEx
 - GOFO
+- UniUni
 - UPS
 - USPS
 - XPO
@@ -110,6 +111,10 @@ The Amazon Shipping carrier does not require any configuration. It works with Am
 **gofo**
 
 The GOFO Express carrier does not require any configuration. It works with GOFO tracking numbers (CR + 12 digits format).
+
+**uniUni**
+
+The UniUni carrier does not require any configuration. It works with UniUni tracking numbers (UUS + 16 letters and digits format). It uses the same lookup as UniUni's public tracking page rather than an issued API key, so UniUni can change it without notice.
 
 **dhl**
 

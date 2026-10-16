@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.0] - 2026-10-16
+### Added
+- UniUni carrier (`carriers/uniUni.js`). Needs no configuration: it calls the same endpoint as UniUni's public tracking page (https://www.uniuni.com/tracking/), with the key that page sends, so UniUni can change or block it without notice. `guessCarrier()` recognizes UniUni tracking numbers (`UUS` + 16 letters and digits) and `track()` accepts carrier `'uniuni'`
+- Event timestamps are Unix seconds, so `defaultTimezone` doesn't apply. Each event's address is where the scan happened (`city`/`province`); UniUni's `pathAddr` repeats the destination city on every scan and is not used
+- `shippedAt` is the first in-network scan (Gateway transit in, 199, or any later milestone). Order received (190, 1870) is electronic only. `deliveredAt` is a 203, 216 or 228 scan. Both lists come from the milestone grouping in UniUni's tracking page
+- `estimatedDeliveryDate` comes from UniUni's `estimate_time` (a date with no time), parsed as UTC midnight like USPS
+- A tracking number UniUni doesn't know returns empty `events` instead of rejecting. A 4xx is not retried
+
 ## [5.0.0] - 2026-10-15
 ### Removed
 - **BREAKING:** the Freight Club carrier. Freight Club's owner, Cymax, is closing. `options.freightClub` is ignored, `guessCarrier()` no longer returns `'Freight Club'`, and `track()` with carrier `'freight club'` or `'freightclub'` now rejects as an unsupported carrier. The `freight-club` dependency is gone
