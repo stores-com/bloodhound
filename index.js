@@ -129,7 +129,7 @@ function Bloodhound(options) {
             carrier = gofo;
         } else if (['lasership', 'ontrac'].includes(options.carrier)) {
             carrier = onTrac;
-        } else if (['newgistics', 'pitney bowes'].includes(options.carrier)) {
+        } else if (options.carrier === 'pitney bowes') {
             carrier = pitneyBowes;
         } else if (options.carrier === 'uniuni') {
             carrier = uniUni;

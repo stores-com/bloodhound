@@ -46,10 +46,6 @@ function PitneyBowes(options) {
             raw: data
         };
 
-        if (_options.carrier && _options.carrier.toLowerCase() === 'newgistics') {
-            results.carrier = 'Newgistics';
-        }
-
         if (!data || !data.scanDetailsList) {
             return results;
         }

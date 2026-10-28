@@ -241,22 +241,6 @@ test('Pitney Bowes', { timeout: 30000 }, async (t) => {
         assert.ok(!indianapolisEvent.address.city.includes('DISTRIBUTION CENTER'));
     });
 
-    await t.test('should set carrier to Newgistics when option is set', async (t) => {
-        const originalFetch = mockFetch('4203300992612927005269000093974783');
-        t.after(() => { global.fetch = originalFetch; });
-
-        const bloodhound = new Bloodhound({
-            pitneyBowes: {
-                api_key: 'test',
-                api_secret: 'test'
-            }
-        });
-
-        const results = await bloodhound.track('4203300992612927005269000093974783', 'newgistics');
-
-        assert.strictEqual(results.carrier, 'Newgistics');
-    });
-
     await t.test('should return empty events for 404 Not Found', async (t) => {
         const originalFetch = global.fetch;
         t.after(() => { global.fetch = originalFetch; });

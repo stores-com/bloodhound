@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-10-28
+### Removed
+- **BREAKING:** the `'newgistics'` carrier. Newgistics shut down in 2024 and its API no longer resolves. `track()` with carrier `'newgistics'` now rejects as an unsupported carrier, and Pitney Bowes results always report `carrier: 'Pitney Bowes'` instead of `'Newgistics'`. Track a Pitney Bowes tracking number with carrier `'pitney bowes'`
+
 ## [5.1.0] - 2026-10-16
 ### Added
 - UniUni carrier (`carriers/uniUni.js`). Needs no configuration: it calls the same endpoint as UniUni's public tracking page (https://www.uniuni.com/tracking/), with the key that page sends, so UniUni can change or block it without notice. `guessCarrier()` recognizes UniUni tracking numbers (`UUS` + 16 letters and digits) and `track()` accepts carrier `'uniuni'`
