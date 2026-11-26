@@ -137,7 +137,7 @@ test('DHL', async (t) => {
             });
         });
 
-        await t.test('should not retry a UTAPI 4xx', async () => {
+        await t.test('should return empty events for a UTAPI 404 without retrying', async () => {
             const fetchMock = t.mock.method(globalThis, 'fetch', () => Promise.resolve(new Response(JSON.stringify({
                 detail: 'No shipment with given tracking number found.',
                 status: 404,
@@ -151,11 +151,9 @@ test('DHL', async (t) => {
             // fetch count is unambiguous.
             const bloodhound = new Bloodhound({ dhl: { apiKey: 'test' } });
 
-            await assert.rejects(() => bloodhound.track(validTrackingNumbers[0], 'dhl'), (err) => {
-                assert.strictEqual(err.cause.status, 404);
+            const results = await bloodhound.track(validTrackingNumbers[0], 'dhl');
 
-                return true;
-            });
+            assert.deepStrictEqual(results.events, []);
 
             // A 404 is a permanent answer for this tracking number. Retrying spends carrier
             // calls on an outcome that cannot change, and those wasted calls are what earn

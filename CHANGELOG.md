@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.1] - 2026-11-26
+### Fixed
+- DHL: a tracking number the UTAPI doesn't know (404) returns empty `events` instead of rejecting, the same as DHL eCommerce Solutions. Retrying or logging that rejection only repeated an answer that cannot change
+
 ## [5.1.0] - 2026-10-16
 ### Added
 - UniUni carrier (`carriers/uniUni.js`). Needs no configuration: it calls the same endpoint as UniUni's public tracking page (https://www.uniuni.com/tracking/), with the key that page sends, so UniUni can change or block it without notice. `guessCarrier()` recognizes UniUni tracking numbers (`UUS` + 16 letters and digits) and `track()` accepts carrier `'uniuni'`

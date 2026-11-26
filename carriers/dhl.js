@@ -59,6 +59,12 @@ function DHL(options) {
                 }
 
                 return await response.json();
+            }).catch(err => {
+                // A tracking number DHL doesn't know returns empty events, the same as
+                // carriers/dhlEcommerceSolutions.js.
+                if (err.cause?.status !== 404) {
+                    throw err;
+                }
             });
 
             const results = {
